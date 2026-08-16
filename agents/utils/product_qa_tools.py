@@ -25,26 +25,31 @@ def _get_embedding(text, model=settings.EMBEDDING_MODEL):
     return response.data[0].embedding
 
 def _reranking(query:str, docs_to_reranking:list, k:int):
-    reranking_response= cohere_client.rerank(
-            model=settings.COHERE_RERANKING_MODEL,
-            query=query,
-            documents=docs_to_reranking,
-            top_n=k
-        )
     reranked_results=[]
-    for result in reranking_response.results:
-        if len(reranking_response.results) >= 10:
-            if result.relevance_score > 0.8:
-                reranked_results.append(docs_to_reranking[result.index] )
-        else:
-            if result.relevance_score > 0.5:
-                reranked_results.append(docs_to_reranking[result.index] )
 
-    return reranked_results
+    try:
+        reranking_response= cohere_client.rerank(
+                model=settings.COHERE_RERANKING_MODEL,
+                query=query,
+                documents=docs_to_reranking,
+                top_n=k
+            )
+        for result in reranking_response.results:
+            if len(reranking_response.results) >= 10:
+                if result.relevance_score > 0.8:
+                    reranked_results.append(docs_to_reranking[result.index] )
+            else:
+                if result.relevance_score > 0.5:
+                    reranked_results.append(docs_to_reranking[result.index] )
+        return reranked_results
+        
+    except:
+        return reranked_results
 
 
-def _retieve_items_data(query:str, k:int =5):
-   
+
+def _retrieve_items_data(query:str, k:int =5):
+
     query_embedding= _get_embedding(query)
     results= qdrant_client.query_points(
         collection_name=settings.QDRANT_ITEMS_COLLECTION_NAME,
@@ -81,13 +86,19 @@ def _retieve_items_data(query:str, k:int =5):
 
 
     to_rerank=retrieved_context
-    reranked_results= _reranking(query=query,
+    reranked_retrieved_context= _reranking(query=query,
                                 docs_to_reranking=to_rerank,
                                 k=k)
+    used_context=[]
+    if len(reranked_retrieved_context) > 0:
+        used_context=reranked_retrieved_context
+    else:
+        used_context=retrieved_context
+
 
     return {
         "retrieved_context_ids":retrieved_context_ids,
-        "retrieved_context":reranked_results,
+        "retrieved_context":used_context,
         "retrieved_context_rating":retrieved_context_rating,
         "similarity_score":similarity_score
     }
@@ -112,7 +123,7 @@ def get_formatted_items_context(query:str, top_k:int=10) -> str:
     Returns:
         A string of the top k context chunks with IDs and average rating prepending each chunk, each repreasenting an inventory item for a given query.   
     """
-    context= _retieve_items_data(query=query,k=top_k)
+    context= _retrieve_items_data(query=query,k=top_k)
     
     processed_context= _process_items_context(context)
     return processed_context
@@ -121,7 +132,7 @@ def get_formatted_items_context(query:str, top_k:int=10) -> str:
 ### reviwes 
 
 
-def _retieve_reviwes_data(query:str,item_list, k:int =5):
+def _retrieve_reviwes_data(query:str,item_list, k:int =5):
     query_embedding= _get_embedding(query)
     results = qdrant_client.query_points(
     collection_name=settings.QDRANT_REVIEWS_COLLECTION_NAME,
@@ -137,6 +148,7 @@ def _retieve_reviwes_data(query:str,item_list, k:int =5):
     ),
     limit=k
     )
+
     retrieved_context_ids=[]
     retrieved_context=[]
     similarity_score=[]
@@ -145,7 +157,6 @@ def _retieve_reviwes_data(query:str,item_list, k:int =5):
         retrieved_context_ids.append(result.payload["parent_asin"])
         retrieved_context.append(result.payload["text"])
         similarity_score.append(result.score)
-
 
 
     return {
@@ -175,7 +186,6 @@ def get_formatted_reviews_context(query:str,item_list:list, top_k:int=15) -> str
         A string of the top k context chunks with IDs prepending each chunk, each representing a review for a given inventory item for a given query
     """
 
-    return _process_reviews_context(_retieve_reviwes_data(query,item_list,top_k))
-
+    return _process_reviews_context(_retrieve_reviwes_data(query,item_list,top_k))
 
 
