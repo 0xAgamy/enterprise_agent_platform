@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     COHERE_API_KEY:str
     COHERE_BASE_URL:str
     COHERE_EMBEDDING_MODEL:str
+    COHERE_RERANKING_MODEL:str
 
     ###OPENROUTER
     OPENROUTER_BASE_URL:str

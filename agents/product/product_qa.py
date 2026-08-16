@@ -11,8 +11,6 @@ gen_client= OpenAI(
     base_url=settings.OLLAMA_BASE_URL
 )
 
-
-
 def product_qa_agent(state)->dict:
     prompt_template= """You're a shopping assistant that can answer questions about the products in stock
 
@@ -37,13 +35,12 @@ def product_qa_agent(state)->dict:
     Examples:
     - get formatted item context 
     {
-        "name":"get_formatted_item_context",
+        "name":"get_formatted_items_context",
         "arguments": {
-            "parameter1": "cool kids toys",
-            "parameter2": "5"
+            "parameter1": "tablets suitable for children or kids",
+            "parameter2": 12
             }
     }
-
 
     CRITICAL Rules:
     - if tool_calls has values, final_answer MUST be false.
