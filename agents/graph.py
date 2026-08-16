@@ -4,7 +4,7 @@ from langgraph.prebuilt import ToolNode
 
 from .models.agents_state import AgentState
 from .product.product_qa import product_qa_agent
-from .utils.product_qa_tools import get_formatted_items_context
+from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
 from .utils.utils import get_tool_descriptions
 
 def product_qa_agent_tool_router(state) -> str:
@@ -23,7 +23,7 @@ def product_qa_agent_tool_router(state) -> str:
 
 
 wf= StateGraph(AgentState)
-product_qa_agent_tools= [get_formatted_items_context]
+product_qa_agent_tools= [get_formatted_items_context,get_formatted_reviews_context]
 product_qa_tools_node= ToolNode(product_qa_agent_tools)
 product_qa_tool_description= get_tool_descriptions(product_qa_agent_tools)
 

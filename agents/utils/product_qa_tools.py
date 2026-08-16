@@ -14,6 +14,7 @@ embed_client= OpenAI(
 cohere_client= ClientV2(
     api_key=settings.COHERE_API_KEY
 )
+qdrant_client= QdrantClient(url=settings.QDRANT_URL)
 
 def _get_embedding(text, model=settings.EMBEDDING_MODEL):
     response= embed_client.embeddings.create(
@@ -43,7 +44,7 @@ def _reranking(query:str, docs_to_reranking:list, k:int):
 
 
 def _retieve_items_data(query:str, k:int =5):
-    qdrant_client= QdrantClient(url=settings.QDRANT_URL)
+   
     query_embedding= _get_embedding(query)
     results= qdrant_client.query_points(
         collection_name=settings.QDRANT_ITEMS_COLLECTION_NAME,
@@ -115,4 +116,66 @@ def get_formatted_items_context(query:str, top_k:int=10) -> str:
     
     processed_context= _process_items_context(context)
     return processed_context
+
+
+### reviwes 
+
+
+def _retieve_reviwes_data(query:str,item_list, k:int =5):
+    query_embedding= _get_embedding(query)
+    results = qdrant_client.query_points(
+    collection_name=settings.QDRANT_REVIEWS_COLLECTION_NAME,
+    query=query_embedding,
+    using="embedding",
+    query_filter=Filter(
+        must=[
+            FieldCondition(
+                key="parent_asin",
+                match=MatchAny(any=item_list)
+            )
+        ]
+    ),
+    limit=k
+    )
+    retrieved_context_ids=[]
+    retrieved_context=[]
+    similarity_score=[]
+
+    for result in results.points:
+        retrieved_context_ids.append(result.payload["parent_asin"])
+        retrieved_context.append(result.payload["text"])
+        similarity_score.append(result.score)
+
+
+
+    return {
+        "retrieved_context_ids":retrieved_context_ids,
+        "retrieved_context":retrieved_context,
+        "similarity_score":similarity_score
+    }
+
+
+def _process_reviews_context(context):
+    format_context= ""
+
+    for id , chunk in zip(context["retrieved_context_ids"], context["retrieved_context"]):
+        format_context+= f"- ID: {id}, reviews : {chunk}\n"
+    return format_context
+
+
+def get_formatted_reviews_context(query:str,item_list:list, top_k:int=15) -> str:
+    """Get the top k reviews matching a query for a list of prefiltered items
+    
+    Args:
+        query: the query to get top k reviews for
+        item_list: The list of items IDs to prefilter for before running the query 
+        top_k: the number of reviews  to retieve,this should be at least 10 if multiple items are prefiltered
+
+    Returns:
+        A string of the top k context chunks with IDs prepending each chunk, each representing a review for a given inventory item for a given query
+    """
+
+    return _process_reviews_context(_retieve_reviwes_data(query,item_list,top_k))
+
+
 
