@@ -1,6 +1,10 @@
 .venv/
 .env
+.env.postgres
+
+
 qdrant_storage/
+postgress_data/
 data
 
 __pycache__

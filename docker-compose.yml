@@ -8,3 +8,14 @@ services:
     volumes:
       - ./qdrant_storage:/qdrant/storage:z
     restart: unless-stopped
+
+
+  postgress:
+    image: postgres:16-alpine
+    ports:
+      - 5433:5432
+    env_file:
+        - .env.postgres
+    restart: unless-stopped
+    volumes:
+      - ./postgress_data:/var/lib/postgresql/data

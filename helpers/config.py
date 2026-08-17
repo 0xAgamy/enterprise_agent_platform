@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     QDRANT_ITEMS_COLLECTION_NAME:str
     QDRANT_REVIEWS_COLLECTION_NAME:str
 
+    ##Postgres
+    DATABASE_URL:str
+
     ###COHERE
     COHERE_API_KEY:str
     COHERE_BASE_URL:str
