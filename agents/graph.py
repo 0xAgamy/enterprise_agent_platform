@@ -4,17 +4,31 @@ from langgraph.prebuilt import ToolNode
 
 from .models.agents_state import AgentState
 from .product.product_qa import product_qa_agent
+from .coordinator.coordinator_agent import coordinator_agent
 from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
 from .utils.utils import get_tool_descriptions
 
-def product_qa_agent_tool_router(state) -> str:
-    """Decide wheather to continue or end"""
-    if state.final_answer:
+
+
+def coordinator_agent_edge(state):
+    if state.coordinator_agent.iterations > 10:
         return "end"
-    elif state.iterations >2 :
+    elif state.coordinator_agent.final_answer and len(state.coordinator_agent.plan)==0:
+        return "end"
+    elif state.coordinator_agent.next_agent== "product_qa_agent":
+        return "product_qa_agent"
+    else:
         return "end"
 
-    elif len(state.tool_calls) > 0 :
+
+def product_qa_agent_tool_router(state) -> str:
+    """Decide wheather to continue or end"""
+    if state.product_qa_agent.final_answer:
+        return "end"
+    elif state.product_qa_agent.iterations >2 :
+        return "end"
+
+    elif len(state.product_qa_agent.tool_calls) > 0 :
         return "tools"
     else:
         return "end" 
@@ -32,9 +46,20 @@ wf.add_node("product_qa_agent", product_qa_agent)
 
 wf.add_node("product_qa_agent_tools", product_qa_tools_node)
 
+\
+wf.add_node("coordinator_agent",coordinator_agent)
 
-wf.add_edge(START,"product_qa_agent")
 
+wf.add_edge(START,"coordinator_agent")
+
+wf.add_conditional_edges(
+    "coordinator_agent",
+    coordinator_agent_edge,
+    {
+        "product_qa_agent":"product_qa_agent",
+        "end": END,
+    }
+)
 
 
 wf.add_conditional_edges(
@@ -42,7 +67,7 @@ wf.add_conditional_edges(
     product_qa_agent_tool_router,
     {
         "tools": "product_qa_agent_tools",
-        "end": END,
+        "end": "coordinator_agent",
     }
 )
 
@@ -55,15 +80,21 @@ wf.add_edge("product_qa_agent_tools","product_qa_agent")
 def run_agent(question:str)->dict:
     init_state={
             "messages": [{"role":"user","content":question}],
-            "available_tools":product_qa_tool_description
+            "product_qa_agent":{
+                "iteration":0,
+                "final_answer":False,
+                "available_tools":product_qa_tool_description,
+                "tool_calls":[]
+            }
             }
 
     graph= wf.compile()
     result= graph.invoke(init_state)
 
+    png_bytes = graph.get_graph().draw_mermaid_png()
+
+    # with open("langgraph.png", "wb") as f:
+    #     f.write(png_bytes)
+
     return result
 
-# png_bytes = graph.get_graph().draw_mermaid_png()
-
-# with open("langgraph.png", "wb") as f:
-#     f.write(png_bytes)

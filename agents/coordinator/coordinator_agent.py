@@ -1,0 +1,87 @@
+import instructor
+from openai import OpenAI
+from jinja2 import Template
+from langchain_core.messages import AIMessage
+
+from agents.models.schemas import CoordinatorAgentResponse
+from helpers.config import get_settings
+from agents.utils.utils import to_llm_message
+settings= get_settings()
+gen_client= OpenAI(
+    api_key=settings.OLLAMA_API_KEY,
+    base_url=settings.OLLAMA_BASE_URL
+)
+
+
+def coordinator_agent(state) -> dict:
+    prompt_template = """You are a Coordinator Agent as part of a shopping assistant.
+
+    Your role is to create plans for solving user queries and delegate the tasks accordingly.
+    You will be given a conversation history, your task is to create a plan for solving the user's query.
+    After the plan is created, you should output the next agent to invoke and the task to be performed by that agent.
+    Once an agent finishes its task, you will be handed the control back, you should then review the conversation history and revise the plan.
+    If there is a sequence of tasks to be performed by a single agent, you should combine them into a single task.
+
+    The possible agents are:
+
+    - product_qa_agent: The user is asking a question about a product. This can be a question about available products, their specifications, user reviews etc.
+
+    CRITICAL RULES:
+    - If next_agent is "", final_answer MUST be false
+    (You cannot delegate the task to an agent and return to the user in the same response)
+    - If final_answer is true, next_agent MUST be ""
+    (You must wait for agent results before returning to user)
+    - If you need to call other agents before answering, set:
+    next_agent="...", final_answer=false
+    - After receiving agent results, you can then set:
+    next_agent="", final_answer=true
+    - One of the following has to be true:
+    next_agent is "" and final_answer is true
+    next_agent is not "" and final_answer is false
+
+    Additional instructions:
+
+    - Do not route to any agent if the user's query needs clarification. Do it yourself.
+    - Write the plan to the plan field.
+    - Write the next agent to invoke to the next_agent field.
+    - Once you have all the information needed to answer the user's query, you should set the final_answer field to True and output the answer to the user's query.
+    - The final answer to the user query should be a comprehensive answer that explains the actions that were performed to answer the query.
+    - Never set final_answer to true if the plan is not complete.
+    - You should output the next_agent field as well as the plan field.
+    """.strip()
+    
+    
+    template= Template(prompt_template)
+    prompt= template.render()
+    conversation=[]
+    for message in state.messages:
+        conversation.append(to_llm_message(message))
+    
+    client = instructor.from_openai(gen_client, mode= instructor.Mode.JSON)
+    response, raw_response= client.chat.completions.create_with_completion(
+        model= settings.OLLAMA_MODEL_NAME,
+        messages=[
+            {"role":"system", "content": prompt},
+            *conversation
+        ],
+        # reasoning_effort="none",
+        response_model= CoordinatorAgentResponse
+    )
+    if response.final_answer:
+        ai_message=[AIMessage(
+                    content=response.answer
+                )]
+    else:
+        ai_message=[]
+
+    return{
+        "messages":ai_message,
+        "answer": response.answer,
+        "coordinator_agent":{
+            "final_answer": response.final_answer,
+            "next_agent": response.next_agent,
+            "iterations": state.coordinator_agent.iterations +1,
+            "plan": [p.model_dump()  for p in response.plan ]
+
+        }
+    }

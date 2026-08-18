@@ -70,7 +70,7 @@ def product_qa_agent(state)->dict:
 
     template= Template(prompt_template)
     prompt= template.render(
-        available_tools= state.available_tools
+        available_tools= state.product_qa_agent.available_tools
     )
     conversation= []
     for message in state.messages:
@@ -89,9 +89,12 @@ def product_qa_agent(state)->dict:
 
     return {
         "messages": [ai_message],
-        "tool_calls": response.tool_calls,
-        "iterations" : state.iterations + 1,
-        "final_answer":response.final_answer,
-        "references": response.references,
-        "answer": response.answer
+        "product_qa_agent":{
+            "tool_calls": [tool_call.model_dump() for tool_call in response.tool_calls],
+            "final_answer": response.final_answer,
+            "iterations" : state.product_qa_agent.iterations + 1,
+            "available_tools": state.product_qa_agent.available_tools
+        },
+        "answer": response.answer,
+        "references" : response.references
     }
