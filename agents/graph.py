@@ -1,3 +1,5 @@
+from qdrant_client import QdrantClient
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 
@@ -9,6 +11,8 @@ from .utils.product_qa_tools import get_formatted_items_context, get_formatted_r
 from .utils.utils import get_tool_descriptions
 
 
+from helpers.config import get_settings
+settings= get_settings()
 
 def coordinator_agent_edge(state):
     if state.coordinator_agent.iterations > 10:
@@ -98,3 +102,43 @@ def run_agent(question:str)->dict:
 
     return result
 
+
+def run_agent_wrapper(question:str) :
+    qdrant_clinet= QdrantClient(url=settings.QDRANT_URL)
+
+    result= run_agent(question=question)
+    used_context= []
+    if len(result["references"]) > 0:
+        for item in result.get("references", []):
+            
+            payload= qdrant_clinet.query_points(
+                collection_name= settings.QDRANT_ITEMS_COLLECTION_NAME,
+        
+                limit=1,
+                with_payload=True,
+                query_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="parent_asin",
+                            match=MatchValue(value=item.id)
+                        )
+                    ]
+                )
+
+            ).points[0].payload
+
+            image_url= payload.get("image")
+            price= payload.get("price")
+
+            if image_url:
+                used_context.append(
+                    {
+                        "image_url":image_url,
+                        "price":price,
+                        "description":item.description
+                    }
+                )
+    return{
+        "answer":   result.get("answer", ""),
+        "used_context": used_context,
+    }

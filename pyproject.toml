@@ -20,6 +20,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "qdrant-client>=1.19.0",
     "sqlalchemy>=2.0.52",
+    "streamlit>=1.61.1",
     "tiktoken>=0.13.0",
     "tqdm>=4.70.0",
 ]

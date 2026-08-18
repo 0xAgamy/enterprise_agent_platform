@@ -1,12 +1,14 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict,Optional
+
 class AgentsReqesut(BaseModel):
     query:str= Field(...,description="The query/question Agentic pipeline")
 
 
 class UsedContext(BaseModel):
-    id: str= Field(description="The ID of the item used to answer the question")
-    description:str = Field(description="Short description of the item used to answer the question")
+    image_url:str= Field(...,description="The URL of the image of the item")
+    price:Optional[float]= Field(...,description="The Price of the item")
+    description: str= Field(...,description="a short description of the item")
 
 class AgentsResponse(BaseModel):
     answer:str= Field(...,description="The Answer from Agentic pipeline")
