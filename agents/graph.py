@@ -27,7 +27,7 @@ def coordinator_agent_edge(state):
         return "end"
 
 
-def product_qa_agent_tool_router(state) -> str:
+def product_qa_agent_edge(state) -> str:
     """Decide wheather to continue or end"""
     if state.product_qa_agent.final_answer:
         return "end"
@@ -70,7 +70,7 @@ wf.add_conditional_edges(
 
 wf.add_conditional_edges(
     "product_qa_agent",
-    product_qa_agent_tool_router,
+    product_qa_agent_edge,
     {
         "tools": "product_qa_agent_tools",
         "end": "coordinator_agent",

@@ -8,27 +8,23 @@ from helpers.config import get_settings
 from helpers.prompt_management import prompt_template_config
 from agents.utils.utils import to_llm_message
 from langsmith import traceable, get_current_run_tree
+from litellm import completion
 
 settings= get_settings()
-gen_client= OpenAI(
-    api_key=settings.OLLAMA_API_KEY,
-    base_url=settings.OLLAMA_BASE_URL
-)
+client = instructor.from_litellm(completion, mode= instructor.Mode.JSON)
+
 
 @traceable(
         name="Coordinator Agent",
         run_type="llm"
 )
 def coordinator_agent(state) -> dict:
-    
-    
     template= prompt_template_config("agents/prompts/coordinator.yml","coordinator_agent")
     prompt= template.render()
-    conversation=[]
-    for message in state.messages:
-        conversation.append(to_llm_message(message))
-    
-    client = instructor.from_openai(gen_client, mode= instructor.Mode.JSON)
+    conversation = [
+            to_llm_message(message)
+            for message in state.messages
+            ]
     response, raw_response= client.chat.completions.create_with_completion(
         model= settings.OLLAMA_MODEL_NAME,
         messages=[

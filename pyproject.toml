@@ -11,6 +11,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "instructor>=1.15.4",
     "langchain>=1.3.15",
+    "litellm>=1.97.0",
     "openapi>=2.0.0",
     "pandas>=3.0.5",
     "psycopg>=3.3.4",

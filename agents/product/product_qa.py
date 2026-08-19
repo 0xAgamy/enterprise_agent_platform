@@ -7,12 +7,14 @@ from helpers.config import get_settings
 from helpers.prompt_management import prompt_template_config
 from agents.utils.utils import to_llm_message, format_ai_message
 from langsmith import traceable, get_current_run_tree
+from litellm import completion
 
 settings= get_settings()
-gen_client= OpenAI(
-    api_key=settings.OLLAMA_API_KEY,
-    base_url=settings.OLLAMA_BASE_URL
-)
+
+client= instructor.from_litellm(completion,mode= instructor.Mode.JSON)
+
+
+
 
 @traceable(
         name="Qna Agent",
@@ -23,11 +25,11 @@ def product_qa_agent(state)->dict:
     prompt= template.render(
         available_tools= state.product_qa_agent.available_tools
     )
-    conversation= []
-    for message in state.messages:
-        conversation.append(to_llm_message(message))
+    conversation = [
+                to_llm_message(message)
+                for message in state.messages
+                ]
 
-    client= instructor.from_openai(gen_client,mode=instructor.Mode.JSON)
     response, raw_response = client.chat.completions.create_with_completion(
         model=settings.OLLAMA_MODEL_NAME,
         response_model=ProductQAAgentResponse,

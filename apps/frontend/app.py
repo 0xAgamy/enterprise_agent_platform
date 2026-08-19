@@ -1,9 +1,7 @@
 import streamlit as st
 import requests
-from helpers.config import get_settings
-
-settings= get_settings()
-API_URL= settings.API_URL
+from core.config import config
+API_URL= config.API_URL
 
 st.set_page_config(
     page_icon="Enterprise Agent Platform Assistant",
