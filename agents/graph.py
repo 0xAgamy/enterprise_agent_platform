@@ -85,7 +85,7 @@ def run_agent(question:str)->dict:
     init_state={
             "messages": [{"role":"user","content":question}],
             "product_qa_agent":{
-                "iteration":0,
+                "iterations":0,
                 "final_answer":False,
                 "available_tools":product_qa_tool_description,
                 "tool_calls":[]
@@ -111,7 +111,7 @@ def run_agent_wrapper(question:str) :
     if len(result["references"]) > 0:
         for item in result.get("references", []):
             
-            payload= qdrant_clinet.query_points(
+            points= qdrant_clinet.query_points(
                 collection_name= settings.QDRANT_ITEMS_COLLECTION_NAME,
         
                 limit=1,
@@ -125,10 +125,12 @@ def run_agent_wrapper(question:str) :
                     ]
                 )
 
-            ).points[0].payload
+            )
+            if not points: continue
+            payload= points[0].payload
 
-            image_url= payload.get("image")
-            price= payload.get("price")
+            image_url= payload.get("image","")
+            price= payload.get("price","")
 
             if image_url:
                 used_context.append(
