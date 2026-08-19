@@ -14,7 +14,7 @@ class QdrantDBProvider:
 
 
     def is_collection_exist(self,collection_name:str)->bool:
-        self.client.collection_exists(collection_name)
+        return self.client.collection_exists(collection_name)
 
     def create_collections(self, collection_name:str):
 
