@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     OLLAMA_API_KEY:str
     OLLAMA_MODEL_NAME:str
 
+    ### Streamlit
+    API_URL:str
+
     
     model_config = SettingsConfigDict(env_file=".env")
 

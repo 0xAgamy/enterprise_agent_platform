@@ -1,7 +1,10 @@
 import streamlit as st
 import requests
+from helpers.config import get_settings
 
-API_URL= "http://localhost:8000"
+settings= get_settings()
+API_URL= settings.API_URL
+
 st.set_page_config(
     page_icon="Enterprise Agent Platform Assistant",
     layout="wide",
