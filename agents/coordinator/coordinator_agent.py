@@ -7,13 +7,18 @@ from agents.models.schemas import CoordinatorAgentResponse
 from helpers.config import get_settings
 from helpers.prompt_management import prompt_template_config
 from agents.utils.utils import to_llm_message
+from langsmith import traceable, get_current_run_tree
+
 settings= get_settings()
 gen_client= OpenAI(
     api_key=settings.OLLAMA_API_KEY,
     base_url=settings.OLLAMA_BASE_URL
 )
 
-
+@traceable(
+        name="Coordinator Agent",
+        run_type="llm"
+)
 def coordinator_agent(state) -> dict:
     
     
@@ -30,9 +35,20 @@ def coordinator_agent(state) -> dict:
             {"role":"system", "content": prompt},
             *conversation
         ],
-        # reasoning_effort="none",
+
         response_model= CoordinatorAgentResponse
     )
+
+    current_run= get_current_run_tree()
+    if current_run:
+        current_run.metadata["usage_metadata"]={
+            "input_tokens": raw_response.usage.prompt_tokens,
+            "output_tokens": raw_response.usage.completion_tokens,
+            "total_tokens": raw_response.usage.total_tokens,
+            "cached_tokens": raw_response.usage.prompt_tokens_details.cached_tokens
+        }
+        trace_id= str(getattr(current_run, "trace_id", current_run.id))
+
     if response.final_answer:
         ai_message=[AIMessage(
                     content=response.answer
@@ -49,5 +65,6 @@ def coordinator_agent(state) -> dict:
             "iterations": state.coordinator_agent.iterations +1,
             "plan": [p.model_dump()  for p in response.plan ]
 
-        }
+        },
+        "trace_id":trace_id
     }

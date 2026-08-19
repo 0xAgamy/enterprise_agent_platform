@@ -4,7 +4,6 @@ from langsmith import traceable, get_current_run_tree
 from qdrant_client import QdrantClient
 from helpers.config import get_settings
 from cohere import ClientV2
-
 settings= get_settings()
 
 embed_client= OpenAI(
@@ -47,7 +46,11 @@ def _reranking(query:str, docs_to_reranking:list, k:int):
         return reranked_results
 
 
+@traceable(
+        name="Retrieve items data",
+        run_type="retriever"
 
+)
 def _retrieve_items_data(query:str, k:int =5):
 
     query_embedding= _get_embedding(query)
@@ -112,7 +115,11 @@ def _process_items_context(context):
     return format_context
 
 
+@traceable(
+        name="Get formatted items context",
+        run_type="tool"
 
+)
 def get_formatted_items_context(query:str, top_k:int=10) -> str:
     """Get the top k context, each representing an inventory for a given query.
     
@@ -131,7 +138,11 @@ def get_formatted_items_context(query:str, top_k:int=10) -> str:
 
 ### reviwes 
 
+@traceable(
+        name="Retrieve reviwes data",
+        run_type="retriever"
 
+)
 def _retrieve_reviwes_data(query:str,item_list, k:int =5):
     query_embedding= _get_embedding(query)
     results = qdrant_client.query_points(
@@ -173,7 +184,11 @@ def _process_reviews_context(context):
         format_context+= f"- ID: {id}, reviews : {chunk}\n"
     return format_context
 
+@traceable(
+        name="Get formatted reviews context",
+        run_type="tool"
 
+)
 def get_formatted_reviews_context(query:str,item_list:list, top_k:int=15) -> str:
     """Get the top k reviews matching a query for a list of prefiltered items
     

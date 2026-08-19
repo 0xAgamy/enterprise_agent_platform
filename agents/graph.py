@@ -14,6 +14,8 @@ from .utils.utils import get_tool_descriptions
 from helpers.config import get_settings
 settings= get_settings()
 
+
+
 def coordinator_agent_edge(state):
     if state.coordinator_agent.iterations > 10:
         return "end"
@@ -126,8 +128,8 @@ def run_agent_wrapper(question:str) :
                 )
 
             )
-            if not points: continue
-            payload= points[0].payload
+            if not points.points: continue
+            payload= points.points[0].payload
 
             image_url= payload.get("image","")
             price= payload.get("price","")

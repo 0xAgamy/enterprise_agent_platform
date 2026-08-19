@@ -36,4 +36,5 @@ class AgentState(BaseModel):
     coordinator_agent: CoordinatorAgentProperties= Field(default_factory=CoordinatorAgentProperties)
     answer:str= ""
     references: Annotated[List[RAGUsedContext], add] = []
+    trace_id:str=""
 

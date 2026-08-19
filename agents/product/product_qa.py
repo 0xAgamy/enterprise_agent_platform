@@ -6,12 +6,18 @@ from agents.models.schemas import ProductQAAgentResponse
 from helpers.config import get_settings
 from helpers.prompt_management import prompt_template_config
 from agents.utils.utils import to_llm_message, format_ai_message
+from langsmith import traceable, get_current_run_tree
+
 settings= get_settings()
 gen_client= OpenAI(
     api_key=settings.OLLAMA_API_KEY,
     base_url=settings.OLLAMA_BASE_URL
 )
 
+@traceable(
+        name="Qna Agent",
+        run_type="llm"
+)
 def product_qa_agent(state)->dict:
     template=prompt_template_config("agents/prompts/product_qa.yml","qa_agent")
     prompt= template.render(
@@ -22,7 +28,7 @@ def product_qa_agent(state)->dict:
         conversation.append(to_llm_message(message))
 
     client= instructor.from_openai(gen_client,mode=instructor.Mode.JSON)
-    response, _ = client.chat.completions.create_with_completion(
+    response, raw_response = client.chat.completions.create_with_completion(
         model=settings.OLLAMA_MODEL_NAME,
         response_model=ProductQAAgentResponse,
         messages=[
@@ -30,6 +36,16 @@ def product_qa_agent(state)->dict:
             *conversation
         ]
     )
+
+    current_run= get_current_run_tree()
+    if current_run:
+        current_run.metadata["usage_metadata"]={
+            "input_tokens": raw_response.usage.prompt_tokens,
+            "output_tokens": raw_response.usage.completion_tokens,
+            "total_tokens": raw_response.usage.total_tokens,
+            "cached_tokens": raw_response.usage.prompt_tokens_details.cached_tokens
+        }
+        
     ai_message= format_ai_message(response)
 
     return {

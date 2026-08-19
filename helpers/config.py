@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import ValidationError
+from dotenv import load_dotenv
 
 class Settings(BaseSettings):
     APP_NAME:str
@@ -32,6 +33,15 @@ class Settings(BaseSettings):
     OLLAMA_API_KEY:str
     OLLAMA_MODEL_NAME:str
 
+    ###OpenAI
+    OPENAI_API_KEY:str
+
+    ###LangSmith
+    LANGSMITH_TRACING:str
+    LANGSMITH_ENDPOINT:str
+    LANGSMITH_API_KEY:str
+    LANGSMITH_PROJECT:str
+
     ### Streamlit
     API_URL:str
 
@@ -41,6 +51,7 @@ class Settings(BaseSettings):
 
 def get_settings():
     try:
+        load_dotenv()
         return Settings()
     except ValidationError as e:
         print("Missing required environment variables")
