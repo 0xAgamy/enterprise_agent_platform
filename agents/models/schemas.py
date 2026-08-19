@@ -12,7 +12,7 @@ class CoordinatorAgentResponse(BaseModel):
     answer:str
 
 
-class ProdcutQAAgentResponse(BaseModel):
+class ProductQAAgentResponse(BaseModel):
     answer:str= Field(description="Full Answer to the question")
     references: List[RAGUsedContext] = Field(description="List of items used to answer the quesiton",default_factory=list)
     final_answer: bool = False

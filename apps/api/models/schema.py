@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict,Optional
 
-class AgentsReqesut(BaseModel):
+class AgentsRequest(BaseModel):
     query:str= Field(...,description="The query/question Agentic pipeline")
 
 

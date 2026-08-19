@@ -2,7 +2,7 @@ import instructor
 from openai import OpenAI
 from jinja2 import Template
 
-from agents.models.schemas import ProdcutQAAgentResponse
+from agents.models.schemas import ProductQAAgentResponse
 from helpers.config import get_settings
 from helpers.prompt_management import prompt_template_config
 from agents.utils.utils import to_llm_message, format_ai_message
@@ -24,7 +24,7 @@ def product_qa_agent(state)->dict:
     client= instructor.from_openai(gen_client,mode=instructor.Mode.JSON)
     response, _ = client.chat.completions.create_with_completion(
         model=settings.OLLAMA_MODEL_NAME,
-        response_model=ProdcutQAAgentResponse,
+        response_model=ProductQAAgentResponse,
         messages=[
             {"role":"system", "content":prompt},
             *conversation
