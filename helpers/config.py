@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     ##Postgres
     DATABASE_URL:str
+    PRESISTANCE_STATE_URL:str
 
     ###COHERE
     COHERE_API_KEY:str

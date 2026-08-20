@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 from core.config import config
+import uuid
+
 API_URL= config.API_URL
 
 st.set_page_config(
@@ -8,6 +10,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+session_id= str(uuid.uuid4())
 
 def api_call(method, url, **kwargs):
 
@@ -52,6 +55,8 @@ for message in st.session_state.messages:
 
 if "used_context" not in  st.session_state:
     st.session_state.used_context=[]
+if "thread_id" not in st.session_state:
+    st.session_state.thread_id=session_id
 
 with st.sidebar:
     suggestion_tab,= st.tabs(["Suggestions"])
@@ -74,7 +79,8 @@ if prompt := st.chat_input("Hello! How can I assist you today?"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        status,output = api_call("post", f"{API_URL}/agent", json={"query":prompt})
+        status,output = api_call("post", f"{API_URL}/agent", json={"query":prompt,
+                                                                   "thread_id":st.session_state.thread_id})
         answer= output["answer"]
         used_context=output["references"]
 

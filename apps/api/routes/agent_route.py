@@ -6,7 +6,7 @@ agent_router = APIRouter()
 @agent_router.post("/")
 def agent(request: Request,payload: AgentsRequest)->AgentsResponse:
     
-    result= run_agent_wrapper(payload.query)
+    result= run_agent_wrapper(payload.query, payload.thread_id)
     return AgentsResponse(
         answer=result["answer"],
         references=[ UsedContext(**res) for res in result["used_context"] ]

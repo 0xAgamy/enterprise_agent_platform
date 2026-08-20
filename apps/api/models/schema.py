@@ -3,7 +3,7 @@ from typing import List, Union,Optional
 
 class AgentsRequest(BaseModel):
     query:str= Field(...,description="The query/question Agentic pipeline")
-
+    thread_id:str= Field(...,description="The thread ID")
 
 class UsedContext(BaseModel):
     image_url:str= Field(...,description="The URL of the image of the item")

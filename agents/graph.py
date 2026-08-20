@@ -9,6 +9,7 @@ from .product.product_qa import product_qa_agent
 from .coordinator.coordinator_agent import coordinator_agent
 from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
 from .utils.utils import get_tool_descriptions
+from langgraph.checkpoint.postgres import PostgresSaver
 
 
 from helpers.config import get_settings
@@ -83,7 +84,7 @@ wf.add_edge("product_qa_agent_tools","product_qa_agent")
 
 
 
-def run_agent(question:str)->dict:
+def run_agent(question:str, thread_id:str)->dict:
     init_state={
             "messages": [{"role":"user","content":question}],
             "product_qa_agent":{
@@ -91,13 +92,20 @@ def run_agent(question:str)->dict:
                 "final_answer":False,
                 "available_tools":product_qa_tool_description,
                 "tool_calls":[]
-            }
-            }
+            }}
+    
+    config= {
+    "configurable":{
+        "thread_id":thread_id
+    }}
 
-    graph= wf.compile()
-    result= graph.invoke(init_state)
+    with PostgresSaver.from_conn_string(settings.PRESISTANCE_STATE_URL) as checkpointer:
 
-    png_bytes = graph.get_graph().draw_mermaid_png()
+    
+        graph= wf.compile(checkpointer)
+        result= graph.invoke(init_state,config)
+
+    # png_bytes = graph.get_graph().draw_mermaid_png()
 
     # with open("langgraph.png", "wb") as f:
     #     f.write(png_bytes)
@@ -105,10 +113,10 @@ def run_agent(question:str)->dict:
     return result
 
 
-def run_agent_wrapper(question:str) :
+def run_agent_wrapper(question:str, thread_id:str) :
     qdrant_clinet= QdrantClient(url=settings.QDRANT_URL)
 
-    result= run_agent(question=question)
+    result= run_agent(question=question, thread_id=thread_id)
     used_context= []
     if len(result["references"]) > 0:
         for item in result.get("references", []):
