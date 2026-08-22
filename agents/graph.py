@@ -8,12 +8,14 @@ from .models.agents_state import AgentState
 from .product.product_qa import product_qa_agent
 from .coordinator.coordinator_agent import coordinator_agent
 from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
-from .utils.utils import get_tool_descriptions
+from .utils.utils import get_tool_descriptions ,string_for_sse, process_graph_event, get_used_context
 from langgraph.checkpoint.postgres import PostgresSaver
 
 
 from helpers.config import get_settings
+import json
 settings= get_settings()
+qdrant_clinet= QdrantClient(url=settings.QDRANT_URL)
 
 
 
@@ -82,9 +84,7 @@ wf.add_edge("product_qa_agent_tools","product_qa_agent")
 
 
 
-
-
-def run_agent(question:str, thread_id:str)->dict:
+def run_agent_stream_wrapper(question:str, thread_id:str) :
     init_state={
             "messages": [{"role":"user","content":question}],
             "product_qa_agent":{
@@ -98,59 +98,34 @@ def run_agent(question:str, thread_id:str)->dict:
     "configurable":{
         "thread_id":thread_id
     }}
-
     with PostgresSaver.from_conn_string(settings.PRESISTANCE_STATE_URL) as checkpointer:
-
-    
         graph= wf.compile(checkpointer)
-        result= graph.invoke(init_state,config)
-
-    # png_bytes = graph.get_graph().draw_mermaid_png()
-
-    # with open("langgraph.png", "wb") as f:
-    #     f.write(png_bytes)
-
-    return result
-
-
-def run_agent_wrapper(question:str, thread_id:str) :
-    qdrant_clinet= QdrantClient(url=settings.QDRANT_URL)
-
-    result= run_agent(question=question, thread_id=thread_id)
-    used_context= []
-    if len(result["references"]) > 0:
-        for item in result.get("references", []):
+        for chunk in  graph.stream(init_state,
+                                config,
+                                stream_mode=["debug","values"]
+                                ):
             
-            points= qdrant_clinet.query_points(
-                collection_name= settings.QDRANT_ITEMS_COLLECTION_NAME,
-        
-                limit=1,
-                with_payload=True,
-                query_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="parent_asin",
-                            match=MatchValue(value=item.id)
-                        )
-                    ]
-                )
+            
+            processes_chunk=process_graph_event(chunk)
+            if processes_chunk:
+                yield string_for_sse(processes_chunk)
+            
+            if chunk[0]=="values":
+                result= chunk[1]
+                
+        yield string_for_sse("[DONE]")
 
-            )
-            if not points.points: continue
-            payload= points.points[0].payload
+        used_context= []
+        if len(result["references"]) > 0:
+            used_context= get_used_context(result["references"],qdrant_clinet)
 
-            image_url= payload.get("image","")
-            price= payload.get("price","")
-
-            if image_url:
-                used_context.append(
-                    {
-                        "image_url":image_url,
-                        "price":price,
-                        "description":item.description
-                    }
-                )
-    return{
-        "answer":   result.get("answer", ""),
-        "used_context": used_context,
-    }
+    yield string_for_sse(json.dumps(
+        {
+            "type":"final_result",
+            "data": {
+                "answer":   result.get("answer", ""),
+                "used_context": used_context,
+                "trace_id": result.get("trace_id",""),
+            }
+        }
+    ))

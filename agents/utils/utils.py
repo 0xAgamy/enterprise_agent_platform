@@ -1,8 +1,12 @@
 import inspect
 from typing import Dict, Any
 import ast
+from helpers.config import get_settings
+from typing import Any, Dict, Optional, Tuple
 
 from langchain.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from qdrant_client.models import Filter, MatchValue, FieldCondition
+settings= get_settings()
 def parse_function_definition(function_def:str) -> Dict[str,Any]:
     """Parse a function definition string to extract metadata including type hits
     """
@@ -227,4 +231,86 @@ def to_llm_message(msg):
         return msg
     
     
+## helper functions for state streaming
+
+def string_for_sse(message:str):
+        return f"data: {message}\n\n"
+
+def process_graph_event(chunk):
+    def _is_interrupt(chunk):
+        return len(chunk[1].get("payload", {}).get("interrupts",[])) > 0
+
+    def _is_node_start(chunk):
+        return chunk[1].get("type") == "task"
+
+    def _is_node_end(chunk):
+
+        return chunk[0]=="updates"
+
+    def _tool_to_text(tool_call):
+        if tool_call.name=="get_formatted_items_context":
+            return f"looking for items: {tool_call.arguments.get('query','')}"
+        elif tool_call.name=="get_formatted_reviews_context":
+            return f"Fecting user reviews"
+        else:
+            return f"Unkown tool: {tool_call.name}"
+
+    if _is_node_start(chunk):
+        payload = chunk[1].get("payload", {})
+        node_name = payload.get("name")
+        if node_name== "product_qa_agent":
+            state = payload.get("input")
+            if state.product_qa_agent.iterations == 0:
+                return "Anaylsing the Question" 
+                
+            if len(state.product_qa_agent.tool_calls) > 0:
+                return "Reviewing the retrieved information..." 
+
+
+        if node_name == "product_qa_agent_tools":
+            state = payload.get("input")
+            message=" ".join([_tool_to_text(tool_call) for tool_call in state.product_qa_agent.tool_calls])
+            return message
+    else:
+        return False
+
+
+
+
+
+## helper function to get used context from references
+
+def get_used_context(references, qdrant_clinet) ->list:
+    used_context= []
+    for item in references:
+        
+        points= qdrant_clinet.query_points(
+            collection_name= settings.QDRANT_ITEMS_COLLECTION_NAME,
     
+            limit=1,
+            with_payload=True,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="parent_asin",
+                        match=MatchValue(value=item.id)
+                    )
+                ]
+            )
+
+        )
+        if not points.points: continue
+        payload= points.points[0].payload
+
+        image_url= payload.get("image","")
+        price= payload.get("price","")
+
+        if image_url:
+            used_context.append(
+                {
+                    "image_url":image_url,
+                    "price":price,
+                    "description":item.description
+                }
+            )
+    return used_context

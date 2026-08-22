@@ -1,13 +1,14 @@
 from fastapi import Request , APIRouter
-from ..models.schema import AgentsRequest, AgentsResponse, UsedContext
-from agents.graph import run_agent_wrapper
+from ..models.schema import AgentsRequest, AgentsResponse
+from fastapi.responses import StreamingResponse
+
+from agents.graph import run_agent_stream_wrapper
 agent_router = APIRouter()
 
 @agent_router.post("/")
-def agent(request: Request,payload: AgentsRequest)->AgentsResponse:
+def agent(request: Request,payload: AgentsRequest)->StreamingResponse:
     
-    result= run_agent_wrapper(payload.query, payload.thread_id)
-    return AgentsResponse(
-        answer=result["answer"],
-        references=[ UsedContext(**res) for res in result["used_context"] ]
+    return StreamingResponse(
+        run_agent_stream_wrapper(payload.query,payload.thread_id),
+        media_type="text/event-stream"
     )
