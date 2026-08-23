@@ -252,12 +252,24 @@ def process_graph_event(chunk):
             return f"looking for items: {tool_call.arguments.get('query','')}"
         elif tool_call.name=="get_formatted_reviews_context":
             return f"Fecting user reviews"
+        elif tool_call.name=="adding_to_shopping_cart":
+            return f"Add items to users shopping cart"
+        elif tool_call.name=="getting_shopping_cart":
+            return f"Getting user shopping cart items"
+        elif tool_call.name=="remove_from_cart":
+            return f"remove items from user shopping cart"
         else:
             return f"Unkown tool: {tool_call.name}"
 
     if _is_node_start(chunk):
         payload = chunk[1].get("payload", {})
         node_name = payload.get("name")
+
+        if node_name== "coordinator_agent":
+            state = payload.get("input")
+            if state.coordinator_agent.iterations == 0:
+                return "Thinking" 
+            
         if node_name== "product_qa_agent":
             state = payload.get("input")
             if state.product_qa_agent.iterations == 0:
@@ -265,9 +277,20 @@ def process_graph_event(chunk):
                 
             if len(state.product_qa_agent.tool_calls) > 0:
                 return "Reviewing the retrieved information..." 
-
-
+        
         if node_name == "product_qa_agent_tools":
+            state = payload.get("input")
+            message=" ".join([_tool_to_text(tool_call) for tool_call in state.product_qa_agent.tool_calls])
+            return message
+
+        if node_name== "shopping_cart_agent":
+            state = payload.get("input")
+            if state.shopping_cart_agent.iterations == 0:
+                return "Dealing with shopping cart" 
+            if len(state.shopping_cart_agent.tool_calls) > 0:
+                return "Analyise user shopping cart" 
+
+        if node_name == "shopping_cart_agent_tools":
             state = payload.get("input")
             message=" ".join([_tool_to_text(tool_call) for tool_call in state.product_qa_agent.tool_calls])
             return message
