@@ -18,3 +18,8 @@ class ProductQAAgentResponse(BaseModel):
     final_answer: bool = False
     tool_calls: List[ToolCall] = Field(default_factory=list)
 
+class ShoppingCartAgentResponse(BaseModel):
+    answer:str= Field(description="Full Answer to the question")
+    final_answer: bool = False
+    tool_calls: List[ToolCall] = Field(default_factory=list)
+

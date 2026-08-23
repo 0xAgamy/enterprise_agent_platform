@@ -21,7 +21,7 @@ class AgentProperties(BaseModel):
     iterations:int = 0
     available_tools: List[Dict[str,Any]] = []
     tool_calls: List[ToolCall]=[]
-    final_answer:bool= False
+    final_answer:bool
 class CoordinatorAgentProperties(BaseModel):
     iterations:int = 0
     final_answer:bool= False
@@ -34,7 +34,11 @@ class AgentState(BaseModel):
     user_intent:str= ""
     product_qa_agent: AgentProperties= Field(default_factory=AgentProperties)
     coordinator_agent: CoordinatorAgentProperties= Field(default_factory=CoordinatorAgentProperties)
+    shopping_cart_agent: AgentProperties= Field(default_factory=AgentProperties)
     answer:str= ""
     references: Annotated[List[RAGUsedContext], add] = []
     trace_id:str=""
+
+    user_id:str=""
+    cart_id:str=""
 

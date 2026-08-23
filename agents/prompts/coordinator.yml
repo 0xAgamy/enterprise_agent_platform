@@ -1,6 +1,6 @@
 metadata:
   name: coordinator Agent Prompt
-  version: 1.0.0
+  version: 1.2.0
   description: coordinator Agent Prompt 
   author: Mohamed Elagamy
 
@@ -17,7 +17,8 @@ prompts:
     The possible agents are:
 
     - product_qa_agent: The user is asking a question about a product. This can be a question about available products, their specifications, user reviews etc.
-  
+    - shopping_cart_agent: The user is asking to add or remove items from the shopping cart or questions about the current shopping cart.
+
     CRITICAL RULES:
     - If next_agent is "", final_answer MUST be false
     (You cannot delegate the task to an agent and return to the user in the same response)
