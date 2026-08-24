@@ -258,6 +258,10 @@ def process_graph_event(chunk):
             return f"Getting user shopping cart items"
         elif tool_call.name=="remove_from_cart":
             return f"remove items from user shopping cart"
+        elif tool_call.name=="check_warehouse_availability":
+            return f"Check item availabality "
+        elif tool_call.name=="reserve_warehouse_items":
+            return f"Reservation "
         else:
             return f"Unkown tool: {tool_call.name}"
 
@@ -292,7 +296,18 @@ def process_graph_event(chunk):
 
         if node_name == "shopping_cart_agent_tools":
             state = payload.get("input")
-            message=" ".join([_tool_to_text(tool_call) for tool_call in state.product_qa_agent.tool_calls])
+            message=" ".join([_tool_to_text(tool_call) for tool_call in state.shopping_cart_agent.tool_calls])
+            return message
+
+        if node_name== "warehouse_manager_agent":
+            state = payload.get("input")
+            if state.warehouse_manager_agent.iterations == 0:
+                return "Managing warehouse operations" 
+            if len(state.shopping_cart_agent.tool_calls) > 0:
+                return "Managing inventory and fulfillment" 
+        if node_name == "warehouse_manager_agent_tools":
+            state = payload.get("input")
+            message=" ".join([_tool_to_text(tool_call) for tool_call in state.warehouse_manager_agent.tool_calls])
             return message
     else:
         return False
