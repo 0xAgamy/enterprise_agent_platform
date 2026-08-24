@@ -24,6 +24,7 @@ def check_warehouse_availability(items:list[dict])-> dict:
             - unavailable_items: list of items that cannot be fullfilled from any warehouse.
             - details: detailed breakdown per warehouse with availability for each item. 
     """
+    conn.autocommit= False
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
