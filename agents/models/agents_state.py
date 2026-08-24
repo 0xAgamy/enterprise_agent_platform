@@ -32,9 +32,11 @@ class CoordinatorAgentProperties(BaseModel):
 class AgentState(BaseModel):
     messages: Annotated[List[Any], add] = []
     user_intent:str= ""
-    product_qa_agent: AgentProperties= Field(default_factory=AgentProperties)
     coordinator_agent: CoordinatorAgentProperties= Field(default_factory=CoordinatorAgentProperties)
+    product_qa_agent: AgentProperties= Field(default_factory=AgentProperties)
     shopping_cart_agent: AgentProperties= Field(default_factory=AgentProperties)
+    warehouse_manager_agent: AgentProperties= Field(default_factory=AgentProperties)
+
     answer:str= ""
     references: Annotated[List[RAGUsedContext], add] = []
     trace_id:str=""
