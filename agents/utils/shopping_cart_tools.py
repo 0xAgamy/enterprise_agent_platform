@@ -2,7 +2,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import  FieldCondition, Filter, Prefetch, FusionQuery, MatchAny, Document, MatchValue
 from psycopg2.extras import RealDictCursor
 from typing import Annotated
-import psycopg2
+from psycopg2 import pool
 from langgraph.prebuilt import InjectedState
 from agents.models.agents_state import AgentState
 from langsmith import traceable
@@ -10,7 +10,12 @@ from helpers.config import get_settings
 settings=get_settings()
 
 qd_client= QdrantClient(url=settings.QDRANT_URL)
-conn= psycopg2.connect(settings.PRESISTANCE_STATE_URL)
+connection_pool= pool.SimpleConnectionPool(
+    1,
+    10,
+    settings.PRESISTANCE_STATE_URL
+)
+
 
 
 @traceable(
@@ -26,15 +31,9 @@ def adding_to_shopping_cart(items: list[dict], state: Annotated[AgentState, Inje
     Returns:
         A list of the items adding to shopping cart.
     """
+    conn = connection_pool.getconn()
     user_id= state.user_id
     cart_id= state.cart_id
-    # conn= psycopg2.connect(
-    #     host="localhost",
-    #     port=5433,
-    #     database="tools_database",
-    #     user="langgraph_user",
-    #     password="langgraph_password"
-    # )
     conn.autocommit= True
 
     with conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -103,7 +102,8 @@ def adding_to_shopping_cart(items: list[dict], state: Annotated[AgentState, Inje
                 RETURNING id, quantity, price
                 """
                 cursor.execute(insert_query, (user_id, cart_id, product_id, price, quantity, currency,product_image_url))
-
+    conn.close()
+    connection_pool.putconn(conn)
     return f"{items} successfully added to the user  shopping cart"        
 
 @traceable(
@@ -118,6 +118,8 @@ def getting_shopping_cart(state: Annotated[AgentState, InjectedState]):
     Return:
         List of dictionaries containing cart items
     """
+    conn = connection_pool.getconn()
+
     user_id= state.user_id
     cart_id= state.cart_id
     conn.autocommit= True
@@ -133,6 +135,8 @@ def getting_shopping_cart(state: Annotated[AgentState, InjectedState]):
         ORDER BY added_at DESC
         """
         cursor.execute(query,(user_id,cart_id))
+        conn.close()
+        connection_pool.putconn(conn)
         return [ dict(row) for row in cursor.fetchall()]
 
 
@@ -150,6 +154,8 @@ def remove_from_cart(product_id:str,  state: Annotated[AgentState, InjectedState
         True if item was removed, False if the item wasn't found
 
     """
+    conn = connection_pool.getconn()
+
     user_id= state.user_id
     cart_id= state.cart_id
     conn.autocommit= True
@@ -162,6 +168,8 @@ def remove_from_cart(product_id:str,  state: Annotated[AgentState, InjectedState
         cursor.execute(query,(user_id,cart_id,product_id))
 
         return cursor.rowcount > 0 
+    conn.close()
+    connection_pool.putconn(conn)
 
 
 def getting_user_shopping_cart(user_id:str, cart_id:str):
@@ -173,6 +181,8 @@ def getting_user_shopping_cart(user_id:str, cart_id:str):
     Return:
         List of dictionaries containing cart items
     """
+    conn = connection_pool.getconn()
+
     conn.autocommit= True
 
     with conn.cursor(cursor_factory=RealDictCursor) as cursor :
@@ -187,3 +197,5 @@ def getting_user_shopping_cart(user_id:str, cart_id:str):
         """
         cursor.execute(query,(user_id,cart_id))
         return [ dict(row) for row in cursor.fetchall()]
+    conn.close()
+    connection_pool.putconn(conn)
