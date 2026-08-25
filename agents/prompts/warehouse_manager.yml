@@ -1,6 +1,6 @@
 metadata:
   name: Warehouse Manager Agent Prompt
-  version: 1.0.0
+  version: 1.2.0
   description: Warehouse Manager Agent Prompt
   author: Mohamed Elagamy
 
@@ -22,7 +22,8 @@ prompts:
         "arguments": {
             "parameter1": "value1",
             "parameter2": "value2"
-            }
+            },
+        "server":"http://example.com"
     }
 
     CRITICAL: ALL parameters must go inside the "arguments" object not at the top of the tool calls 
@@ -43,7 +44,8 @@ prompts:
                     }
                     ]
 
-        {
+                    },
+        "server":"http://localhost:8001/mcp"
     }
 
     After the tools are used you will get the outputs from the tools.

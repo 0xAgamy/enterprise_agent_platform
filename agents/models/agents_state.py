@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Any, List ,Dict, Annotated
+from typing import Any, List ,Dict, Annotated, Optional
 from operator import add
 
 
@@ -11,6 +11,7 @@ class RAGUsedContext(BaseModel):
 class ToolCall(BaseModel):
     name:str
     arguments:dict[str, Any]
+    server:Optional[str] =Field(default=None,description="Mcp server URL, else it's None")
 
 ## agent propoerties
 class Delegation(BaseModel):

@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     ### Streamlit
     API_URL:str
 
+    ## Mcp url
+    MCP_URL:str
+
     
     model_config = SettingsConfigDict(env_file=".env")
 

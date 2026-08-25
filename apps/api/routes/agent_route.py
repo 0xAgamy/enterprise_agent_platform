@@ -6,7 +6,7 @@ from agents.graph import run_agent_stream_wrapper
 agent_router = APIRouter()
 
 @agent_router.post("/")
-def agent(request: Request,payload: AgentsRequest)->StreamingResponse:
+async def agent(request: Request,payload: AgentsRequest)->StreamingResponse:
     
     return StreamingResponse(
         run_agent_stream_wrapper(payload.query,payload.thread_id),

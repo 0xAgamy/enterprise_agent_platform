@@ -11,13 +11,15 @@ from .shopping.shopping_cart import shopping_cart_agent
 from .warehouse.warehouse_manager import warehouse_manager_agent
 from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
 from .utils.shopping_cart_tools import getting_shopping_cart, adding_to_shopping_cart, remove_from_cart , getting_user_shopping_cart
-from .utils.warehouse_manager_tools import check_warehouse_availability, reserve_warehouse_items
 from .utils.utils import get_tool_descriptions ,string_for_sse, process_graph_event, get_used_context
-from langgraph.checkpoint.postgres import PostgresSaver
+from .utils.mcp_utils import get_tool_descriptions_from_mcp_servers
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 
 from helpers.config import get_settings
 import json
+from fastmcp import Client
+from langchain.messages import ToolMessage
 settings= get_settings()
 qdrant_clinet= QdrantClient(url=settings.QDRANT_URL)
 
@@ -73,87 +75,102 @@ def warehouse_manager_agent_tool_router(state) -> str:
     else:
         return "end" 
 
-wf= StateGraph(AgentState)
+async def warehouse_manager_mcp_tool_call(state:AgentState):
+    tool_messages=[]
+    for i, tc in enumerate(state.warehouse_manager_agent.tool_calls):
+        client= Client(tc.server)
+
+        async with client:
+            result= await client.call_tool(tc.name, tc.arguments)
+            tool_message= ToolMessage(
+                content=result,
+                tool_call_id=f'call_{i}'
+            )
+            tool_messages.append(tool_message)
+    return {
+        "messages":tool_messages
+    }
+
 product_qa_agent_tools= [get_formatted_items_context,get_formatted_reviews_context]
-product_qa_tools_node= ToolNode(product_qa_agent_tools)
 product_qa_tool_description= get_tool_descriptions(product_qa_agent_tools)
-
-
-
 shopping_cart_agent_tools= [adding_to_shopping_cart,getting_shopping_cart,remove_from_cart]
-shopping_cart_tools_node= ToolNode(shopping_cart_agent_tools)
 shopping_cart_tool_description= get_tool_descriptions(shopping_cart_agent_tools)
 
 
-warehouse_manager_agent_tools= [check_warehouse_availability,reserve_warehouse_items]
-warehouse_manager_agent_tools_node= ToolNode(warehouse_manager_agent_tools)
-warehouse_manager_agent_tool_description= get_tool_descriptions(warehouse_manager_agent_tools)
+async def graph_builder():
+    wf= StateGraph(AgentState)
+    product_qa_tools_node= ToolNode(product_qa_agent_tools)
+    shopping_cart_tools_node= ToolNode(shopping_cart_agent_tools)
+
+    mcp_servers= [settings.MCP_URL]
+    mcp_tools_descriptions= await get_tool_descriptions_from_mcp_servers(mcp_servers)
+    wf.add_node("warehouse_manager_mcp_tool_call", warehouse_manager_mcp_tool_call)
 
 
-wf.add_node("coordinator_agent",coordinator_agent)
+    wf.add_node("coordinator_agent",coordinator_agent)
 
-wf.add_node("product_qa_agent", product_qa_agent)
-wf.add_node("product_qa_agent_tools", product_qa_tools_node)
+    wf.add_node("product_qa_agent", product_qa_agent)
+    wf.add_node("product_qa_agent_tools", product_qa_tools_node)
 
-wf.add_node("shopping_cart_agent", shopping_cart_agent)
-wf.add_node("shopping_cart_agent_tools", shopping_cart_tools_node)
+    wf.add_node("shopping_cart_agent", shopping_cart_agent)
+    wf.add_node("shopping_cart_agent_tools", shopping_cart_tools_node)
 
-wf.add_node("warehouse_manager_agent", warehouse_manager_agent)
-wf.add_node("warehouse_manager_agent_tools", warehouse_manager_agent_tools_node)
+    wf.add_node("warehouse_manager_agent", warehouse_manager_agent)
 
+    wf.add_edge(START,"coordinator_agent")
 
-wf.add_edge(START,"coordinator_agent")
+    wf.add_conditional_edges(
+        "coordinator_agent",
+        coordinator_agent_edge,
+        {
+            "product_qa_agent":"product_qa_agent",
+            "shopping_cart_agent":"shopping_cart_agent",
+            "warehouse_manager_agent":"warehouse_manager_agent",
 
-wf.add_conditional_edges(
-    "coordinator_agent",
-    coordinator_agent_edge,
-    {
-        "product_qa_agent":"product_qa_agent",
-        "shopping_cart_agent":"shopping_cart_agent",
-        "warehouse_manager_agent":"warehouse_manager_agent",
-
-        "end": END,
-    }
-)
+            "end": END,
+        }
+    )
 
 
-wf.add_conditional_edges(
-    "product_qa_agent",
-    product_qa_agent_edge,
-    {
-        "tools": "product_qa_agent_tools",
-        "end": "coordinator_agent",
-    }
-)
+    wf.add_conditional_edges(
+        "product_qa_agent",
+        product_qa_agent_edge,
+        {
+            "tools": "product_qa_agent_tools",
+            "end": "coordinator_agent",
+        }
+    )
 
-wf.add_conditional_edges(
-    "shopping_cart_agent",
-    shopping_cart_agent_tool_router,
-    {
-        "tools": "shopping_cart_agent_tools",
+    wf.add_conditional_edges(
+        "shopping_cart_agent",
+        shopping_cart_agent_tool_router,
+        {
+            "tools": "shopping_cart_agent_tools",
+            "end": "coordinator_agent"
+        }
+    )
+
+
+    wf.add_conditional_edges(
+        "warehouse_manager_agent",
+        warehouse_manager_agent_tool_router,
+        {
+        "tools": "warehouse_manager_mcp_tool_call",
         "end": "coordinator_agent"
-    }
-)
-
-
-wf.add_conditional_edges(
-    "warehouse_manager_agent",
-    warehouse_manager_agent_tool_router,
-    {
-    "tools": "warehouse_manager_agent_tools",
-    "end": "coordinator_agent"
-    }
-)
+        }
+    )
 
 
 
 
-wf.add_edge("product_qa_agent_tools","product_qa_agent")
-wf.add_edge("shopping_cart_agent_tools","shopping_cart_agent")
-wf.add_edge("warehouse_manager_agent_tools","warehouse_manager_agent")
+    wf.add_edge("product_qa_agent_tools","product_qa_agent")
+    wf.add_edge("shopping_cart_agent_tools","shopping_cart_agent")
+    wf.add_edge("warehouse_manager_mcp_tool_call","warehouse_manager_agent")
+    return wf, mcp_tools_descriptions
 
 
-def run_agent_stream_wrapper(question:str, thread_id:str) :
+async def run_agent_stream_wrapper(question:str, thread_id:str) :
+    wf, mcp_tools_descriptions= await graph_builder()
     
     init_state={
             "messages": [{"role":"user","content":question}],
@@ -174,7 +191,7 @@ def run_agent_stream_wrapper(question:str, thread_id:str) :
             "warehouse_manager_agent":{
                                         "iterations":0,
                                         "final_answer":False,
-                                        "available_tools":warehouse_manager_agent_tool_description,
+                                        "available_tools":mcp_tools_descriptions,
                                         "tool_calls":[]
                                     }
 
@@ -184,9 +201,9 @@ def run_agent_stream_wrapper(question:str, thread_id:str) :
     "configurable":{
         "thread_id":thread_id
     }}
-    with PostgresSaver.from_conn_string(settings.PRESISTANCE_STATE_URL) as checkpointer:
+    async with AsyncPostgresSaver.from_conn_string(settings.PRESISTANCE_STATE_URL) as checkpointer:
         graph= wf.compile(checkpointer)
-        for chunk in  graph.stream(init_state,
+        async for chunk in  graph.astream(init_state,
                                 config,
                                 stream_mode=["debug","values"]
                                 ):
