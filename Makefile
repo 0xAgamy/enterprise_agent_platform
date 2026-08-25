@@ -1,3 +1,5 @@
 run-docker-compose:
 	uv sync
-	docker compose up --build
+	docker compose up --build 
+run-api:
+	uvicorn apps.api.app:app --reload
