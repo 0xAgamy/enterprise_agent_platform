@@ -2,10 +2,13 @@ import inspect
 from typing import Dict, Any
 import ast
 from helpers.config import get_settings
-from typing import Any, Dict, Optional, Tuple
-
+from typing import Any, Dict, Literal
+from langgraph.graph import  END 
+from langgraph.types import  Command, interrupt
+from langsmith import traceable
 from langchain.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from qdrant_client.models import Filter, MatchValue, FieldCondition
+import json
 settings= get_settings()
 def parse_function_definition(function_def:str) -> Dict[str,Any]:
     """Parse a function definition string to extract metadata including type hits
@@ -309,6 +312,15 @@ def process_graph_event(chunk):
             state = payload.get("input")
             message=" ".join([_tool_to_text(tool_call) for tool_call in state.warehouse_manager_agent.tool_calls])
             return message
+    elif _is_interrupt(chunk):
+        value= chunk[1].get("payload", {}).get("interrupts",[])[0].get("value")
+        payload= {
+            "type":"hitl_interrupt",
+            "data":{
+                "data":value
+            }
+        }
+        return json.dumps(payload)
     else:
         return False
 
@@ -352,3 +364,41 @@ def get_used_context(references, qdrant_clinet) ->list:
                 }
             )
     return used_context
+
+
+## Human-in-the-loop function
+
+
+@traceable(
+    name="HITL Reservation",
+)
+def hitl_reservation(state) -> Command[Literal["warehouse_manager_mcp_tool_call", "__end__"]]:
+    for tool_call in state.warehouse_manager_agent.tool_calls:
+        if tool_call.name == "reserve_warehouse_items":
+                reservations_items=tool_call.arguments['reservations']
+                break
+
+    human_input=interrupt({
+        "reservations_items":reservations_items
+    })
+
+    if human_input.get("confirmed"):
+        return Command(
+            update={},
+            goto="warehouse_manager_mcp_tool_call"
+        )
+    else:
+
+        last_message= state.messages[-1]
+        santized= AIMessage(
+        content=last_message.content,
+            id= last_message.id
+        )
+        return Command(
+            update={
+                "messages":[santized],
+                "answer":"You have rejected the Reservation of items."
+                },
+            goto=END
+        )
+    

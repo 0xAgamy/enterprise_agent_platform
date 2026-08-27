@@ -49,6 +49,8 @@ def initialize_session_state() -> None:
         "feedback_submission_status": None,
         "trace_id": None,
         "shopping_cart": [],
+        "hitl_decision": None,
+        "pending_hitl": None,
         "error_popup": None,
     }
 
@@ -350,6 +352,69 @@ def submit_feedback(
 
 
 # ============================================================
+# HITL
+# ============================================================
+
+def send_hitl_response(
+    thread_id: str,
+    approved: bool,
+) -> Tuple[bool, Dict[str, Any]]:
+    """Send a non-streaming HITL response."""
+
+    hitl_data = {
+        "thread_id": thread_id,
+        "approved": approved,
+    }
+    print(f"hitl Data: {hitl_data}")
+
+    return api_call(
+        "post",
+        f"{config.API_URL}/hitl/",
+        json=hitl_data,
+    )
+
+
+@st.dialog("Human Review Required")
+def hitl_popup(task_data: Dict[str, Any]) -> None:
+    """Display the human-in-the-loop approval dialog."""
+
+    st.markdown("### Agent wants permission to continue")
+
+    st.json(task_data)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button(
+            "Approve",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.pending_hitl = None
+
+            st.session_state.hitl_decision = {
+                "approved": True,
+
+            }
+
+            st.rerun()
+
+    with col2:
+        if st.button(
+            "Reject",
+            use_container_width=True,
+        ):
+            st.session_state.pending_hitl = None
+
+            st.session_state.hitl_decision = {
+                "approved": False,
+            
+            }
+
+            st.rerun()
+
+
+# ============================================================
 # Final result handling
 # ============================================================
 
@@ -383,6 +448,84 @@ def store_final_result(data: Dict[str, Any]) -> str:
 
     return answer
 
+
+# ============================================================
+# Display HITL result
+# ============================================================
+
+def process_hitl_decision() -> None:
+    """
+    Process an approval/rejection decision and stream the result.
+    """
+
+    decision = st.session_state.get("hitl_decision")
+
+    if decision is None:
+        return
+
+    # Consume the decision immediately so it cannot be processed twice.
+    st.session_state.hitl_decision = None
+
+    with st.chat_message("assistant"):
+        status_placeholder = st.empty()
+        message_placeholder = st.empty()
+
+        status_placeholder.info("Processing your decision...")
+
+        got_final_result = False
+
+        for line in api_call_stream(
+            "post",
+            f"{config.API_URL}/hitl/",
+            json={
+                "thread_id": session_id,
+                "approved": decision["approved"],
+            
+            },
+            headers={
+                "Accept": "text/event-stream",
+            },
+        ):
+            output = parse_sse_line(line)
+
+            if output is None:
+                continue
+
+            output_type = output.get("type")
+
+            if output_type == "final_result":
+                output_data = output.get("data", {})
+
+                answer = store_final_result(output_data)
+
+                status_placeholder.empty()
+                message_placeholder.markdown(answer)
+
+                got_final_result = True
+                break
+
+            elif output_type == "error":
+                error_data = output.get("data", {})
+
+                if isinstance(error_data, dict):
+                    error_message = error_data.get(
+                        "message",
+                        "The server returned an error.",
+                    )
+                else:
+                    error_message = str(error_data)
+
+                status_placeholder.empty()
+                message_placeholder.error(error_message)
+                break
+
+            elif output_type == "text":
+                status_placeholder.markdown(
+                    str(output.get("data", ""))
+                )
+
+        if not got_final_result:
+            status_placeholder.empty()
 
 
 # ============================================================
@@ -698,7 +841,7 @@ def process_user_prompt(prompt: str) -> None:
         status_placeholder.info("Thinking...")
 
         got_final_result = False
-        
+        got_hitl_interrupt = False
 
         for line in api_call_stream(
             "post",
@@ -733,7 +876,30 @@ def process_user_prompt(prompt: str) -> None:
                 got_final_result = True
                 break
 
-        
+            # ------------------------------------------------
+            # HITL interruption
+            # ------------------------------------------------
+
+            elif output_type == "hitl_interrupt":
+                hitl_data = output.get("data")
+
+                if not isinstance(hitl_data, dict):
+                    hitl_data = {
+                        "message": str(hitl_data)
+                    }
+
+                st.session_state.pending_hitl = hitl_data
+
+                status_placeholder.empty()
+
+                message_placeholder.info(
+                    "Human approval is required before "
+                    "the agent can continue."
+                )
+
+                got_hitl_interrupt = True
+                break
+
             # ------------------------------------------------
             # Server error
             # ------------------------------------------------
@@ -762,6 +928,8 @@ def process_user_prompt(prompt: str) -> None:
                     str(output.get("data", ""))
                 )
 
+        if not got_final_result and not got_hitl_interrupt:
+            status_placeholder.empty()
 
 
 # ============================================================
@@ -769,6 +937,32 @@ def process_user_prompt(prompt: str) -> None:
 # ============================================================
 
 display_error_popup()
+
+# ------------------------------------------------------------
+# Process a previous HITL decision.
+#
+# IMPORTANT:
+# This must happen before rendering the rest of the page,
+# because the decision was created by the dialog on a previous
+# Streamlit run.
+# ------------------------------------------------------------
+
+if st.session_state.get("hitl_decision") is not None:
+    process_hitl_decision()
+
+    # We intentionally stop this run after processing the
+    # decision. A rerun will render the updated conversation.
+    st.rerun()
+
+
+# ------------------------------------------------------------
+# Display HITL dialog when required
+# ------------------------------------------------------------
+
+if st.session_state.get("pending_hitl") is not None:
+    hitl_popup(
+        st.session_state.pending_hitl
+    )
 
 
 # ------------------------------------------------------------

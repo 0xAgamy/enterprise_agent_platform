@@ -28,3 +28,9 @@ class FeedbackRequest(BaseModel):
 
 class FeedbackResponse(BaseModel):
     status:str= Field(...,description="The Status of the feedback sumbession")
+
+
+###Human-in-the-loop
+class HitlRequest(BaseModel):
+    thread_id:str= Field(...,description="The thread ID")
+    approved:bool= Field(...,description="Weather the HITL response was approved")

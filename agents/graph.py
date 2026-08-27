@@ -1,7 +1,7 @@
 from qdrant_client import QdrantClient
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
-
+from langgraph.types import Command
 
 from .models.agents_state import AgentState
 from .product.product_qa import product_qa_agent
@@ -11,7 +11,7 @@ from .shopping.shopping_cart import shopping_cart_agent
 from .warehouse.warehouse_manager import warehouse_manager_agent
 from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
 from .utils.shopping_cart_tools import getting_shopping_cart, adding_to_shopping_cart, remove_from_cart , getting_user_shopping_cart
-from .utils.utils import get_tool_descriptions ,string_for_sse, process_graph_event, get_used_context
+from .utils.utils import get_tool_descriptions ,string_for_sse, process_graph_event, get_used_context, hitl_reservation
 from .utils.mcp_utils import get_tool_descriptions_from_mcp_servers
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -65,13 +65,22 @@ def shopping_cart_agent_tool_router(state) -> str:
     
 def warehouse_manager_agent_tool_router(state) -> str:
     """Decide wheather to continue or end"""
+    reservation= False
+    for tool_call in state.warehouse_manager_agent.tool_calls:
+        if tool_call.name=="reserve_warehouse_items":
+            reservation= True
+            break
+
     if state.warehouse_manager_agent.final_answer:
         return "end"
     elif state.warehouse_manager_agent.iterations >2 :
         return "end"
 
     elif len(state.warehouse_manager_agent.tool_calls) > 0 :
-        return "tools"
+        if reservation:
+            return "hitl_reservation"
+        else:
+            return "tools"
     else:
         return "end" 
 
@@ -116,6 +125,7 @@ async def graph_builder():
     wf.add_node("shopping_cart_agent_tools", shopping_cart_tools_node)
 
     wf.add_node("warehouse_manager_agent", warehouse_manager_agent)
+    wf.add_node("hitl_reservation",hitl_reservation)
 
     wf.add_edge(START,"coordinator_agent")
 
@@ -156,6 +166,7 @@ async def graph_builder():
         warehouse_manager_agent_tool_router,
         {
         "tools": "warehouse_manager_mcp_tool_call",
+        "hitl_reservation":"hitl_reservation",
         "end": "coordinator_agent"
         }
     )
@@ -169,34 +180,40 @@ async def graph_builder():
     return wf, mcp_tools_descriptions
 
 
-async def run_agent_stream_wrapper(question:str, thread_id:str) :
+async def run_agent_stream_wrapper(question:str, thread_id:str, mode:str) :
     wf, mcp_tools_descriptions= await graph_builder()
-    
-    init_state={
-            "messages": [{"role":"user","content":question}],
-            "user_id":thread_id,
-            "cart_id":thread_id,
-            "product_qa_agent":{
-                "iterations":0,
-                "final_answer":False,
-                "available_tools":product_qa_tool_description,
-                "tool_calls":[]
-            },
-            "shopping_cart_agent":{
-                            "iterations":0,
-                            "final_answer":False,
-                            "available_tools":shopping_cart_tool_description,
-                            "tool_calls":[]
-                        },
-            "warehouse_manager_agent":{
-                                        "iterations":0,
-                                        "final_answer":False,
-                                        "available_tools":mcp_tools_descriptions,
-                                        "tool_calls":[]
-                                    }
+    if mode=="initialise":
+        init_state={
+                "messages": [{"role":"user","content":question}],
+                "user_id":thread_id,
+                "cart_id":thread_id,
+                "product_qa_agent":{
+                    "iterations":0,
+                    "final_answer":False,
+                    "available_tools":product_qa_tool_description,
+                    "tool_calls":[]
+                },
+                "shopping_cart_agent":{
+                                "iterations":0,
+                                "final_answer":False,
+                                "available_tools":shopping_cart_tool_description,
+                                "tool_calls":[]
+                            },
+                "warehouse_manager_agent":{
+                                            "iterations":0,
+                                            "final_answer":False,
+                                            "available_tools":mcp_tools_descriptions,
+                                            "tool_calls":[]
+                                        }
 
+                }
+    if mode=="hitl":
+        init_state=Command(
+            resume={
+                "confirmed":question
             }
-    
+        )
+        
     config= {
     "configurable":{
         "thread_id":thread_id

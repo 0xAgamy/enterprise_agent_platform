@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
+from langgraph.graph import  add_messages
 from typing import Any, List ,Dict, Annotated, Optional
 from operator import add
-
 
 
 class RAGUsedContext(BaseModel):
@@ -31,7 +31,7 @@ class CoordinatorAgentProperties(BaseModel):
 ## Agent state
 
 class AgentState(BaseModel):
-    messages: Annotated[List[Any], add] = []
+    messages: Annotated[List[Any], add_messages] = []
     user_intent:str= ""
     coordinator_agent: CoordinatorAgentProperties= Field(default_factory=CoordinatorAgentProperties)
     product_qa_agent: AgentProperties= Field(default_factory=AgentProperties)

@@ -102,7 +102,6 @@ def adding_to_shopping_cart(items: list[dict], state: Annotated[AgentState, Inje
                 RETURNING id, quantity, price
                 """
                 cursor.execute(insert_query, (user_id, cart_id, product_id, price, quantity, currency,product_image_url))
-    conn.close()
     connection_pool.putconn(conn)
     return f"{items} successfully added to the user  shopping cart"        
 
@@ -135,7 +134,6 @@ def getting_shopping_cart(state: Annotated[AgentState, InjectedState]):
         ORDER BY added_at DESC
         """
         cursor.execute(query,(user_id,cart_id))
-        conn.close()
         connection_pool.putconn(conn)
         return [ dict(row) for row in cursor.fetchall()]
 
@@ -197,5 +195,4 @@ def getting_user_shopping_cart(user_id:str, cart_id:str):
         """
         cursor.execute(query,(user_id,cart_id))
         return [ dict(row) for row in cursor.fetchall()]
-    conn.close()
     connection_pool.putconn(conn)
