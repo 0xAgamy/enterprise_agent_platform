@@ -23,27 +23,29 @@ def _get_embedding(text, model=settings.EMBEDDING_MODEL):
     )
     return response.data[0].embedding
 
-def _reranking(query:str, docs_to_reranking:list, k:int):
-    reranked_results=[]
-
+def _reranking(query:str, docs:list, k:int):
     try:
-        reranking_response= cohere_client.rerank(
-                model=settings.COHERE_RERANKING_MODEL,
-                query=query,
-                documents=docs_to_reranking,
-                top_n=k
-            )
-        for result in reranking_response.results:
-            if len(reranking_response.results) >= 10:
-                if result.relevance_score > 0.8:
-                    reranked_results.append(docs_to_reranking[result.index] )
-            else:
-                if result.relevance_score > 0.5:
-                    reranked_results.append(docs_to_reranking[result.index] )
+        response = cohere_client.rerank(
+            model=settings.COHERE_RERANKING_MODEL,
+            query=query,
+            documents=[doc["description"] for doc in docs],
+            top_n=k,
+        )
+
+        threshold = 0.8 if len(docs) >= 10 else 0.5
+
+        reranked_results = []
+
+        for result in response.results:
+            if result.relevance_score > threshold:
+                item = docs[result.index].copy()
+                item["rerank_score"] = result.relevance_score
+                reranked_results.append(item)
+
         return reranked_results
-        
-    except:
-        return reranked_results
+
+    except Exception:
+        return []
 
 
 @traceable(
@@ -76,42 +78,38 @@ def _retrieve_items_data(query:str, k:int =5):
         query= FusionQuery(fusion='rrf'),
         limit=k
     )  
-    retrieved_context_ids=[]
-    retrieved_context=[]
-    similarity_score=[]
-    retrieved_context_rating=[]
+    retrieved_context = []
 
     for result in results.points:
-        retrieved_context_ids.append(result.payload["parent_asin"])
-        retrieved_context.append(result.payload["description"])
-        retrieved_context_rating.append(result.payload["average_rating"])
-        similarity_score.append(result.score)
+        retrieved_context.append({
+            "id": result.payload["parent_asin"],
+            "description": result.payload["description"],
+            "rating": result.payload["average_rating"],
+            "similarity_score": result.score,
+        })
 
+    reranked_context = _reranking(
+        query=query,
+        docs=retrieved_context,
+        k=k,
+    )
 
-    to_rerank=retrieved_context
-    reranked_retrieved_context= _reranking(query=query,
-                                docs_to_reranking=to_rerank,
-                                k=k)
-    used_context=[]
-    if len(reranked_retrieved_context) > 0:
-        used_context=reranked_retrieved_context
-    else:
-        used_context=retrieved_context
-
+    used_context = reranked_context or retrieved_context
 
     return {
-        "retrieved_context_ids":retrieved_context_ids,
-        "retrieved_context":used_context,
-        "retrieved_context_rating":retrieved_context_rating,
-        "similarity_score":similarity_score
+        "retrieved_context": used_context,
     }
 
 
 def _process_items_context(context):
     format_context= ""
-
-    for id , chunk, rating in zip(context["retrieved_context_ids"], context["retrieved_context"], context["retrieved_context_rating"]):
-        format_context+= f"- ID: {id}, rating: {rating}, description : {chunk}\n"
+    for item in context["retrieved_context"]:
+            format_context += (
+                f'- ID: {item["id"]}, '
+                f'rating: {item["rating"]}, '
+                f'description: {item["description"]}\n'
+            )
+        
     return format_context
 
 
