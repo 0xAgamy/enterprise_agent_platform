@@ -306,7 +306,7 @@ def process_graph_event(chunk):
             state = payload.get("input")
             if state.warehouse_manager_agent.iterations == 0:
                 return "Managing warehouse operations" 
-            if len(state.shopping_cart_agent.tool_calls) > 0:
+            if len(state.warehouse_manager_agent.tool_calls) > 0:
                 return "Managing inventory and fulfillment" 
         if node_name == "warehouse_manager_agent_tools":
             state = payload.get("input")
