@@ -4,15 +4,14 @@ from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
 
 from .models.agents_state import AgentState
-from .product.product_qa import product_qa_agent
+from .product.product_qa import ProductQa
 
-from .coordinator.coordinator_agent import coordinator_agent
-from .shopping.shopping_cart import shopping_cart_agent
-from .warehouse.warehouse_manager import warehouse_manager_agent
+from .coordinator.coordinator_agent import Coordiantor
+from .shopping.shopping_cart import ShoppingCart
+from .warehouse.warehouse_manager import WarehouseManager
 from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
 from .utils.shopping_cart_tools import getting_shopping_cart, adding_to_shopping_cart, remove_from_cart , getting_user_shopping_cart
 from .utils.utils import get_tool_descriptions ,string_for_sse, process_graph_event, get_used_context, hitl_reservation
-from .utils.mcp_utils import get_tool_descriptions_from_mcp_servers
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 
@@ -106,13 +105,16 @@ shopping_cart_agent_tools= [adding_to_shopping_cart,getting_shopping_cart,remove
 shopping_cart_tool_description= get_tool_descriptions(shopping_cart_agent_tools)
 
 
-async def graph_builder():
+async def graph_builder(llm_client, model_name):
+    coordinator_agent= Coordiantor(model_name,llm_client)
+    product_qa_agent= ProductQa(model_name,llm_client)
+    shopping_cart_agent= ShoppingCart(model_name,llm_client)
+    warehouse_manager_agent= WarehouseManager(model_name,llm_client)
     wf= StateGraph(AgentState)
     product_qa_tools_node= ToolNode(product_qa_agent_tools)
     shopping_cart_tools_node= ToolNode(shopping_cart_agent_tools)
 
-    mcp_servers= [settings.MCP_URL]
-    mcp_tools_descriptions= await get_tool_descriptions_from_mcp_servers(mcp_servers)
+
     wf.add_node("warehouse_manager_mcp_tool_call", warehouse_manager_mcp_tool_call)
 
 
@@ -177,11 +179,10 @@ async def graph_builder():
     wf.add_edge("product_qa_agent_tools","product_qa_agent")
     wf.add_edge("shopping_cart_agent_tools","shopping_cart_agent")
     wf.add_edge("warehouse_manager_mcp_tool_call","warehouse_manager_agent")
-    return wf, mcp_tools_descriptions
+    return wf
 
 
-async def run_agent_stream_wrapper(question:str, thread_id:str, mode:str) :
-    wf, mcp_tools_descriptions= await graph_builder()
+async def run_agent_stream_wrapper(wf,mcp_tools_descriptions,question:str, thread_id:str, mode:str) :
     if mode=="initialise":
         init_state={
                 "messages": [{"role":"user","content":question}],
