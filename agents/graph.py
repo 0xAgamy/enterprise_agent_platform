@@ -9,7 +9,7 @@ from .product.product_qa import ProductQa
 from .coordinator.coordinator_agent import Coordiantor
 from .shopping.shopping_cart import ShoppingCart
 from .warehouse.warehouse_manager import WarehouseManager
-from .utils.product_qa_tools import get_formatted_items_context, get_formatted_reviews_context
+from .utils.product_qa_tools import ProductQATools
 from .utils.shopping_cart_tools import getting_shopping_cart, adding_to_shopping_cart, remove_from_cart , getting_user_shopping_cart
 from .utils.utils import get_tool_descriptions ,string_for_sse, process_graph_event, get_used_context, hitl_reservation
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -99,17 +99,22 @@ async def warehouse_manager_mcp_tool_call(state:AgentState):
         "messages":tool_messages
     }
 
-product_qa_agent_tools= [get_formatted_items_context,get_formatted_reviews_context]
-product_qa_tool_description= get_tool_descriptions(product_qa_agent_tools)
+
 shopping_cart_agent_tools= [adding_to_shopping_cart,getting_shopping_cart,remove_from_cart]
 shopping_cart_tool_description= get_tool_descriptions(shopping_cart_agent_tools)
 
+async def graph_builder(llm_client, gen_model_name, qdrant_service):
 
-async def graph_builder(llm_client, model_name):
-    coordinator_agent= Coordiantor(model_name,llm_client)
-    product_qa_agent= ProductQa(model_name,llm_client)
-    shopping_cart_agent= ShoppingCart(model_name,llm_client)
-    warehouse_manager_agent= WarehouseManager(model_name,llm_client)
+    product_tools=ProductQATools(qdrant_service)
+
+    product_qa_agent_tools=product_tools.tools()
+
+    coordinator_agent= Coordiantor(gen_model_name,llm_client)
+    product_qa_agent= ProductQa(gen_model_name,llm_client, product_tools.get_tools_descriptions())
+    shopping_cart_agent= ShoppingCart(gen_model_name,llm_client)
+    warehouse_manager_agent= WarehouseManager(gen_model_name,llm_client)
+
+
     wf= StateGraph(AgentState)
     product_qa_tools_node= ToolNode(product_qa_agent_tools)
     shopping_cart_tools_node= ToolNode(shopping_cart_agent_tools)
@@ -191,7 +196,6 @@ async def run_agent_stream_wrapper(wf,mcp_tools_descriptions,question:str, threa
                 "product_qa_agent":{
                     "iterations":0,
                     "final_answer":False,
-                    "available_tools":product_qa_tool_description,
                     "tool_calls":[]
                 },
                 "shopping_cart_agent":{

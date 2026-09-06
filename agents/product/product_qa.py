@@ -1,12 +1,14 @@
 from agents.models.schemas import ProductQAAgentResponse
 from helpers.prompt_management import prompt_template_config
-from agents.utils.utils import to_llm_message, format_ai_message
+from agents.utils.utils import to_llm_message, format_ai_message, get_tool_descriptions
 from langsmith import traceable, get_current_run_tree
 
+
 class ProductQa:
-    def __init__(self,model_name, llm_client):
+    def __init__(self,model_name, llm_client, tools):
         self.model_name= model_name
         self.llm_client= llm_client
+        self.tools_description= tools
         self.template= prompt_template_config("agents/prompts/product_qa.yml","qa_agent")
 
     @traceable(
@@ -15,7 +17,7 @@ class ProductQa:
     )
     def __call__(self,state)->dict:
         prompt= self.template.render(
-            available_tools= state.product_qa_agent.available_tools
+            available_tools= self.tools_description
         )
         conversation = [
                     to_llm_message(message)

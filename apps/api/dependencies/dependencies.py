@@ -4,7 +4,13 @@ from litellm import completion
 from agents.utils.mcp_utils import get_tool_descriptions_from_mcp_servers
 from agents.graph import graph_builder
 from typing import Optional
+from openai import OpenAI
+from qdrant_client import QdrantClient
+from cohere import ClientV2
 
+from services.reranking.reranking import Reranking
+from services.embeddings.embedding import Embedding
+from stores.VectorDB.QdrantDB import QdrantDBProvider
 class AppDependencies:
     def __init__(self):
         self.settings= get_settings()
@@ -15,14 +21,34 @@ class AppDependencies:
     async def initialize(self):
         self.mcp_tools = await self._get_mcp_tools()
         self.graph = await graph_builder(
-            self.llm_client,
-            self.settings.OLLAMA_MODEL_NAME,
+            llm_client=self.llm_client,
+            gen_model_name=self.settings.OLLAMA_MODEL_NAME,
+            qdrant_service=self._get_qdrant_service()
         )
         
         
 
 
+    def _get_reranking_service(self):
+        return Reranking(
+            self.settings.COHERE_API_KEY,
+            self.settings.COHERE_RERANKING_MODEL
+        )
+    def _get_embedding_service(self):
+        return Embedding(
+            self.settings.OPENROUTER_API_KEY,
+            self.settings.OPENROUTER_BASE_URL,
+            self.settings.EMBEDDING_MODEL
+        )
 
+    def _get_qdrant_client(self):
+        return QdrantClient(url=self.settings.QDRANT_URL)
+    def _get_qdrant_service(self):
+        return QdrantDBProvider(
+            vdb_client=self._get_qdrant_client(),
+            embedding_service=self._get_embedding_service(),
+            reranking_service=self._get_reranking_service()
+        )
 
 
 
