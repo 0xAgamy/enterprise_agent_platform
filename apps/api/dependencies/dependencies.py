@@ -11,6 +11,7 @@ from cohere import ClientV2
 from services.reranking.reranking import Reranking
 from services.embeddings.embedding import Embedding
 from stores.VectorDB.QdrantDB import QdrantDBProvider
+from stores.PostgresDB.PostgreDB import PostgreService
 class AppDependencies:
     def __init__(self):
         self.settings= get_settings()
@@ -23,7 +24,8 @@ class AppDependencies:
         self.graph = await graph_builder(
             llm_client=self.llm_client,
             gen_model_name=self.settings.OLLAMA_MODEL_NAME,
-            qdrant_service=self._get_qdrant_service()
+            qdrant_service=self._get_qdrant_service(),
+            postgre_service=self._get_postgres_service()
         )
         
         
@@ -49,6 +51,9 @@ class AppDependencies:
             embedding_service=self._get_embedding_service(),
             reranking_service=self._get_reranking_service()
         )
+    def _get_postgres_service(self):
+        return PostgreService(self.settings.PRESISTANCE_STATE_URL)
+
 
 
 

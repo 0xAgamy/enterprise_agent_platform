@@ -6,9 +6,8 @@ from sqlalchemy import pool
 from alembic import context
 
 from models.database import Base
-from models.shopping_cart import ShoppingCartItem
-from models.warehouse import Inventory
 
+from models.products import Product
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

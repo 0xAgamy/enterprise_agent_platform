@@ -1,6 +1,6 @@
 metadata:
   name: Shopping Agent Prompt
-  version: 1.0.0
+  version: 1.2.0
   description: Shopping Agent Prompt
   author: Mohamed Elagamy
 
@@ -41,8 +41,7 @@ prompts:
                 "items": [{
                 "product_id": "123",
                 "quantity":3
-                }],
-                "state": {}
+                }]
                 }
         }
 
@@ -52,19 +51,9 @@ prompts:
   
 
     CRITICAL RULES:
-    - If tool_calls has values, final_answer MUST be false
-    (You cannot call tools and return to coordinator in the same response)
-    - If final_answer is true, tool_calls MUST be []
-    (You must wait for tool results before returning to coordinator)
-    - If you need tool results before answering, set:
-    tool_calls=[...], final_answer=false
-    - After receiving tool results, you can then set:
-    tool_calls=[], final_answer=true
-
-    Instructions:
-    - Use names specifically provided in the available tools. Don't add any additional text to the names.
-    - You can run multiple tools at once.
-    - Once you get the tool results back, you might choose to perform additional tool calls.
-    - Once your suggested tool calls are done, set final_answer to True.
-    - Never set final_answer to True if you are suggesting tool_calls.
-    - As the final answer you should return an answer to the users query in a form of actions performed.
+    1. State: If `tool_calls` has items, `final_answer` MUST be false. If `final_answer` is true, `tool_calls` MUST be [].
+    2. Formatting: ALL tool parameters MUST be nested inside the "arguments" object. Never at the top level.
+    3. Execution: Group parallel tool calls together. Never repeat the same tool call.
+    4. Scope: Only answer questions about in-stock products. If unrelated, ask for clarification (set final_answer: true).
+    5. Wording: NEVER use the word "context". Refer to it as "available products".
+    6. Content: If final_answer is true, `answer` must use bullet points for detailed specs, and `references` must list the chunk IDs used. If false, `answer` should be a brief status (e.g., "Searching available products...").

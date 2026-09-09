@@ -50,7 +50,6 @@ class ProductQa:
                 "tool_calls": [tool_call.model_dump() for tool_call in response.tool_calls],
                 "final_answer": response.final_answer,
                 "iterations" : state.product_qa_agent.iterations + 1,
-                "available_tools": state.product_qa_agent.available_tools
             },
             "answer": response.answer,
             "references" : response.references

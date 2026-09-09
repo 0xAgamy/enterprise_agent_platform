@@ -1,8 +1,5 @@
-# models/shopping_cart.py
-
 from datetime import datetime
 from decimal import Decimal
-
 from sqlalchemy import (
     DateTime,
     Integer,
@@ -13,7 +10,6 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-
 from models.database import Base
 
 

@@ -4,9 +4,10 @@ from agents.utils.utils import to_llm_message, format_ai_message
 from langsmith import traceable, get_current_run_tree
 
 class ShoppingCart:
-    def __init__(self, model_name, llm_client):
+    def __init__(self, model_name, llm_client, tools):
         self.model_name= model_name
         self.llm_client = llm_client
+        self.tools= tools
         self.template= prompt_template_config("agents/prompts/shopping.yml","shopping_agent")
 
 
@@ -17,7 +18,7 @@ class ShoppingCart:
     def __call__(self,state) -> dict:
         
         prompt=self.template.render(
-            available_tools= state.shopping_cart_agent.available_tools,
+            available_tools= self.tools
 
         )
         conversation = [
@@ -54,7 +55,6 @@ class ShoppingCart:
                 "tool_calls": [tool_call.model_dump() for tool_call in response.tool_calls],
                 "final_answer": response.final_answer,
                 "iterations" : state.shopping_cart_agent.iterations + 1,
-                "available_tools": state.shopping_cart_agent.available_tools
             },
             "answer": response.answer,
         }

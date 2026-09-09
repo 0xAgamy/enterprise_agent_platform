@@ -10,8 +10,8 @@ from .coordinator.coordinator_agent import Coordiantor
 from .shopping.shopping_cart import ShoppingCart
 from .warehouse.warehouse_manager import WarehouseManager
 from .utils.product_qa_tools import ProductQATools
-from .utils.shopping_cart_tools import getting_shopping_cart, adding_to_shopping_cart, remove_from_cart , getting_user_shopping_cart
-from .utils.utils import get_tool_descriptions ,string_for_sse, process_graph_event, get_used_context, hitl_reservation
+from .utils.shopping_cart_tools import ShoppingCartTools
+from .utils.utils import string_for_sse, process_graph_event, get_used_context, hitl_reservation
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 
@@ -100,18 +100,17 @@ async def warehouse_manager_mcp_tool_call(state:AgentState):
     }
 
 
-shopping_cart_agent_tools= [adding_to_shopping_cart,getting_shopping_cart,remove_from_cart]
-shopping_cart_tool_description= get_tool_descriptions(shopping_cart_agent_tools)
-
-async def graph_builder(llm_client, gen_model_name, qdrant_service):
+async def graph_builder(llm_client, gen_model_name, qdrant_service, postgre_service):
 
     product_tools=ProductQATools(qdrant_service)
 
     product_qa_agent_tools=product_tools.tools()
 
+    shppoing_cart_tools= ShoppingCartTools(postgre_service)
+    shopping_cart_agent_tools=shppoing_cart_tools.tools()
     coordinator_agent= Coordiantor(gen_model_name,llm_client)
     product_qa_agent= ProductQa(gen_model_name,llm_client, product_tools.get_tools_descriptions())
-    shopping_cart_agent= ShoppingCart(gen_model_name,llm_client)
+    shopping_cart_agent= ShoppingCart(gen_model_name,llm_client,shppoing_cart_tools.get_tools_descriptions() )
     warehouse_manager_agent= WarehouseManager(gen_model_name,llm_client)
 
 
@@ -184,6 +183,9 @@ async def graph_builder(llm_client, gen_model_name, qdrant_service):
     wf.add_edge("product_qa_agent_tools","product_qa_agent")
     wf.add_edge("shopping_cart_agent_tools","shopping_cart_agent")
     wf.add_edge("warehouse_manager_mcp_tool_call","warehouse_manager_agent")
+
+    async with AsyncPostgresSaver.from_conn_string(settings.PRESISTANCE_STATE_URL) as checkpointer:
+        await checkpointer.setup()
     return wf
 
 
@@ -201,7 +203,6 @@ async def run_agent_stream_wrapper(wf,mcp_tools_descriptions,question:str, threa
                 "shopping_cart_agent":{
                                 "iterations":0,
                                 "final_answer":False,
-                                "available_tools":shopping_cart_tool_description,
                                 "tool_calls":[]
                             },
                 "warehouse_manager_agent":{
@@ -244,17 +245,17 @@ async def run_agent_stream_wrapper(wf,mcp_tools_descriptions,question:str, threa
         if len(result["references"]) > 0:
             used_context= get_used_context(result["references"],qdrant_clinet)
 
-        shopping_cart= getting_user_shopping_cart(thread_id,thread_id)
-        shopping_cart_items= [{
-            "price": float(item.get("price")) if item.get("price") else None,
-            "quantity": item.get("quantity"),
-            "currency": item.get("currency"),
-            "product_image_url": item.get("product_image_url"),
-            "total_price": float(item.get("total_price")) if item.get("total_price") else None,
+        # shopping_cart= getting_user_shopping_cart(thread_id,thread_id)
+        # shopping_cart_items= [{
+        #     "price": float(item.get("price")) if item.get("price") else None,
+        #     "quantity": item.get("quantity"),
+        #     "currency": item.get("currency"),
+        #     "product_image_url": item.get("product_image_url"),
+        #     "total_price": float(item.get("total_price")) if item.get("total_price") else None,
 
-        }
-        for item in shopping_cart
-        ]
+        # }
+        # for item in shopping_cart
+        # ]
     yield string_for_sse(json.dumps(
         {
             "type":"final_result",
@@ -262,7 +263,7 @@ async def run_agent_stream_wrapper(wf,mcp_tools_descriptions,question:str, threa
                 "answer":   result.get("answer", ""),
                 "used_context": used_context,
                 "trace_id": result.get("trace_id",""),
-                "shopping_cart_items":shopping_cart_items
+                # "shopping_cart_items":shopping_cart_items
             }
         }
     ))
