@@ -2,11 +2,9 @@ from helpers.config import get_settings
 import instructor
 from litellm import completion
 from agents.utils.mcp_utils import get_tool_descriptions_from_mcp_servers
-from agents.graph import graph_builder
+from agents.graph import EnterpriseAgentGraph
 from typing import Optional
-from openai import OpenAI
 from qdrant_client import QdrantClient
-from cohere import ClientV2
 
 from services.reranking.reranking import Reranking
 from services.embeddings.embedding import Embedding
@@ -21,12 +19,14 @@ class AppDependencies:
 
     async def initialize(self):
         self.mcp_tools = await self._get_mcp_tools()
-        self.graph = await graph_builder(
+        self.graph = EnterpriseAgentGraph(
             llm_client=self.llm_client,
             gen_model_name=self.settings.OLLAMA_MODEL_NAME,
             qdrant_service=self._get_qdrant_service(),
-            postgre_service=self._get_postgres_service()
+            postgre_service=self._get_postgres_service(),
+            mcp_tools=self.mcp_tools
         )
+        await self.graph.initialize()
         
         
 
@@ -53,7 +53,6 @@ class AppDependencies:
         )
     def _get_postgres_service(self):
         return PostgreService(self.settings.PRESISTANCE_STATE_URL)
-
 
 
 

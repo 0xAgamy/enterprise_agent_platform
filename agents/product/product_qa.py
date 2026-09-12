@@ -1,6 +1,6 @@
 from agents.models.schemas import ProductQAAgentResponse
 from helpers.prompt_management import prompt_template_config
-from agents.utils.utils import to_llm_message, format_ai_message, get_tool_descriptions
+from agents.utils.utils import to_llm_message, format_ai_message
 from langsmith import traceable, get_current_run_tree
 
 

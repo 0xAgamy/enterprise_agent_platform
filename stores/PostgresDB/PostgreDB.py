@@ -169,6 +169,24 @@ class PostgreService:
         finally:
             self.connection_pool.putconn(conn)
 
+    def get_user_shopping_cart_by_user_id(self,user_id:str ):
+            conn = self.connection_pool.getconn()
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    get_query="""
+                    SELECT 
+                        product_image_url , price, quantity, 
+                        currency,
+                        (price * quantity) as total_price
+                    FROM shopping_carts.shopping_cart_items
+                    WHERE user_id = %s
+                    ORDER BY added_at DESC
+                    """
+                    cursor.execute(get_query,(user_id,))
+                    return [ dict(row) for row in cursor.fetchall()]
+            finally:
+                self.connection_pool.putconn(conn)
+
 
 
 
