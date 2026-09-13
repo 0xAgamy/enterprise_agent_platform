@@ -4,5 +4,5 @@ run-docker-compose:
 run-api:
 	uvicorn apps.api.app:app --reload
 run-ui:
-	cd apps/frontend/ && streamlit run app.py
+	cd frontend/ && streamlit run app.py
 	

@@ -1,0 +1,56 @@
+from apps.agents.models.schemas import ProductQAAgentResponse
+from apps.helpers.prompt_management import prompt_template_config
+from apps.agents.utils.utils import to_llm_message, format_ai_message
+from langsmith import traceable, get_current_run_tree
+
+
+class ProductQa:
+    def __init__(self,model_name, llm_client, tools):
+        self.model_name= model_name
+        self.llm_client= llm_client
+        self.tools_description= tools
+        self.template= prompt_template_config("apps/agents/prompts/product_qa.yml","qa_agent")
+
+    @traceable(
+            name="Qna Agent",
+            run_type="llm"
+    )
+    def __call__(self,state)->dict:
+        prompt= self.template.render(
+            available_tools= self.tools_description
+        )
+        conversation = [
+                    to_llm_message(message)
+                    for message in state.messages
+                    ]
+
+        response, raw_response = self.llm_client.chat.completions.create_with_completion(
+            model=self.model_name,
+            response_model=ProductQAAgentResponse,
+            messages=[
+                {"role":"system", "content":prompt},
+                *conversation
+            ]
+        )
+
+        current_run= get_current_run_tree()
+        if current_run:
+            current_run.metadata["usage_metadata"]={
+                "input_tokens": raw_response.usage.prompt_tokens,
+                "output_tokens": raw_response.usage.completion_tokens,
+                "total_tokens": raw_response.usage.total_tokens,
+                "cached_tokens": raw_response.usage.prompt_tokens_details.cached_tokens
+            }
+            
+        ai_message= format_ai_message(response)
+
+        return {
+            "messages": [ai_message],
+            "product_qa_agent":{
+                "tool_calls": [tool_call.model_dump() for tool_call in response.tool_calls],
+                "final_answer": response.final_answer,
+                "iterations" : state.product_qa_agent.iterations + 1,
+            },
+            "answer": response.answer,
+            "references" : response.references
+        }
