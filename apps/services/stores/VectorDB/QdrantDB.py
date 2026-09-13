@@ -4,8 +4,8 @@ from qdrant_client.models import (VectorParams , Distance, SparseVectorParams,
                                 Modifier,PayloadSchemaType,MatchAny , Document,
                                 FieldCondition,Filter,Prefetch ,FusionQuery, MatchValue)
 
-from services.embeddings.embedding import Embedding
-from services.reranking.reranking import Reranking
+from apps.services.embeddings.embedding import Embedding
+from apps.services.reranking.reranking import Reranking
 class QdrantDBProvider:
     def __init__(self, vdb_client:QdrantClient, embedding_service:Embedding, reranking_service:Reranking, vector_size:int=1024 ):
         self.client= vdb_client

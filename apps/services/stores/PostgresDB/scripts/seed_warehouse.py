@@ -4,8 +4,8 @@ from pathlib import Path
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stores.PostgresDB.models.warehouse import Inventory
-from stores.PostgresDB.models.database import AsyncSessionLocal
+from apps.services.stores.PostgresDB.models.warehouse import Inventory
+from apps.services.stores.PostgresDB.models.database import AsyncSessionLocal
 
 from datetime import datetime
 

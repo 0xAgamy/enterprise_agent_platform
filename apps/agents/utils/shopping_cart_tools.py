@@ -1,8 +1,8 @@
 from typing import Annotated
 from langgraph.prebuilt import InjectedState
-from agents.models.agents_state import AgentState
+from apps.agents.models.agents_state import AgentState
 from langsmith import traceable
-from stores.PostgresDB.PostgreDB import PostgreService
+from apps.services.stores.PostgresDB.PostgreDB import PostgreService
 from langchain_core.tools import StructuredTool
 
 class ShoppingCartTools:

@@ -1,6 +1,6 @@
-from helpers.config import get_settings
-from stores.VectorDB.QdrantDB import QdrantDBProvider
-from retrieval.embedding import get_embedding_batch, get_items_data, get_reviews_data
+from apps.helpers.config import get_settings
+from apps.services.stores.VectorDB.QdrantDB import QdrantDBProvider
+from apps.services.retrieval.embedding import get_embedding_batch, get_items_data, get_reviews_data
 from qdrant_client.models import PointStruct, Document
 from openai import OpenAI
 

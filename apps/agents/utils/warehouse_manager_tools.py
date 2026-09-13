@@ -1,6 +1,6 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from helpers.config import get_settings
+from apps.helpers.config import get_settings
 from langsmith import traceable
 settings= get_settings()
 conn= psycopg2.connect(settings.PRESISTANCE_STATE_URL)

@@ -2,7 +2,7 @@
 from langsmith import traceable
 from langchain_core.tools import tool
 from langchain_core.tools import StructuredTool
-from stores.VectorDB.QdrantDB import QdrantDBProvider
+from apps.services.stores.VectorDB.QdrantDB import QdrantDBProvider
 
 class ProductQATools:
     def __init__(self, qdrant_service:QdrantDBProvider):

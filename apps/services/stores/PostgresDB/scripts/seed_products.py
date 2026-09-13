@@ -3,8 +3,8 @@ import json
 
 from sqlalchemy import select
 
-from stores.PostgresDB.models.database import AsyncSessionLocal
-from stores.PostgresDB.models.products import Product
+from apps.services.stores.PostgresDB.models.database import AsyncSessionLocal
+from apps.services.stores.PostgresDB.models.products import Product
 
 
 JSONL_FILE = "data/data.json"

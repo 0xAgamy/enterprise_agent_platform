@@ -10,7 +10,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-from models.database import Base
+from apps.services.stores.PostgresDB.models.database import Base
 
 
 class ShoppingCartItem(Base):

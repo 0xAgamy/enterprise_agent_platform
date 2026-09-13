@@ -1,15 +1,15 @@
-from helpers.config import get_settings
+from apps.helpers.config import get_settings
 import instructor
 from litellm import completion
-from agents.utils.mcp_utils import get_tool_descriptions_from_mcp_servers
-from agents.graph import EnterpriseAgentGraph
+from apps.agents.utils.mcp_utils import get_tool_descriptions_from_mcp_servers
+from apps.agents.graph import EnterpriseAgentGraph
 from typing import Optional
 from qdrant_client import QdrantClient
 
-from services.reranking.reranking import Reranking
-from services.embeddings.embedding import Embedding
-from stores.VectorDB.QdrantDB import QdrantDBProvider
-from stores.PostgresDB.PostgreDB import PostgreService
+from apps.services.reranking.reranking import Reranking
+from apps.services.embeddings.embedding import Embedding
+from apps.services.stores.VectorDB.QdrantDB import QdrantDBProvider
+from apps.services.stores.PostgresDB.PostgreDB import PostgreService
 class AppDependencies:
     def __init__(self):
         self.settings= get_settings()

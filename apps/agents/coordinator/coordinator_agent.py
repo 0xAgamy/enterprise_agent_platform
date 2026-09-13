@@ -1,7 +1,7 @@
 from langchain_core.messages import AIMessage
-from agents.models.schemas import CoordinatorAgentResponse
-from helpers.prompt_management import prompt_template_config
-from agents.utils.utils import to_llm_message
+from apps.agents.models.schemas import CoordinatorAgentResponse
+from apps.helpers.prompt_management import prompt_template_config
+from apps.agents.utils.utils import to_llm_message
 from langsmith import traceable, get_current_run_tree
 
 
@@ -9,7 +9,7 @@ class Coordiantor:
     def __init__(self,model_name, llm_client):
         self.model_name= model_name
         self.llm_client= llm_client
-        self.template= prompt_template_config("agents/prompts/coordinator.yml","coordinator_agent")
+        self.template= prompt_template_config("apps/agents/prompts/coordinator.yml","coordinator_agent")
         
 
     @traceable(

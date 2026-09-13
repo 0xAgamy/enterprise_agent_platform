@@ -14,12 +14,12 @@ from .utils.utils import string_for_sse, process_graph_event,  hitl_reservation
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 
-from helpers.config import get_settings
+from apps.helpers.config import get_settings
 import json
 from fastmcp import Client
 from langchain.messages import ToolMessage
-from stores.VectorDB.QdrantDB import QdrantDBProvider
-from stores.PostgresDB.PostgreDB import PostgreService
+from apps.services.stores.VectorDB.QdrantDB import QdrantDBProvider
+from apps.services.stores.PostgresDB.PostgreDB import PostgreService
 settings= get_settings()
 
 class EnterpriseAgentGraph:

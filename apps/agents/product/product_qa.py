@@ -1,6 +1,6 @@
-from agents.models.schemas import ProductQAAgentResponse
-from helpers.prompt_management import prompt_template_config
-from agents.utils.utils import to_llm_message, format_ai_message
+from apps.agents.models.schemas import ProductQAAgentResponse
+from apps.helpers.prompt_management import prompt_template_config
+from apps.agents.utils.utils import to_llm_message, format_ai_message
 from langsmith import traceable, get_current_run_tree
 
 
@@ -9,7 +9,7 @@ class ProductQa:
         self.model_name= model_name
         self.llm_client= llm_client
         self.tools_description= tools
-        self.template= prompt_template_config("agents/prompts/product_qa.yml","qa_agent")
+        self.template= prompt_template_config("apps/agents/prompts/product_qa.yml","qa_agent")
 
     @traceable(
             name="Qna Agent",
