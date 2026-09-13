@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterator, Optional, Tuple
 import requests
 import streamlit as st
 
-from frontend.core.config import config
+from core.config import config
 
 
 # ============================================================
